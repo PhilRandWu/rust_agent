@@ -4,22 +4,26 @@ use tower_http::cors::CorsLayer;
 
 use crate::config::app::AppConfig;
 use crate::llm::registry::ModelRegistry;
+use crate::llm::service::LlmService;
 use crate::routes::{chat, health};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
     pub model_registry: Arc<ModelRegistry>,
+    pub llm_service: Arc<LlmService>,
 }
 
 impl AppState {
-    pub fn new(config: AppConfig) -> Self {
+    pub fn new(config: AppConfig) -> anyhow::Result<Self> {
         let model_registry = ModelRegistry::new(config.model.clone());
+        let llm_service = LlmService::from_registry(&model_registry)?;
 
-        Self {
+        Ok(Self {
             config: Arc::new(config),
             model_registry: Arc::new(model_registry),
-        }
+            llm_service: Arc::new(llm_service),
+        })
     }
 }
 
@@ -96,7 +100,7 @@ mod tests {
             model: ModelConfig::from_values(&HashMap::new()).expect("model config should load"),
         };
 
-        let result = build_router(AppState::new(config));
+        let result = build_router(AppState::new(config).expect("state should build"));
 
         assert!(result.is_err());
     }
