@@ -3,17 +3,22 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 
 use crate::config::app::AppConfig;
+use crate::llm::registry::ModelRegistry;
 use crate::routes::{chat, health};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
+    pub model_registry: Arc<ModelRegistry>,
 }
 
 impl AppState {
     pub fn new(config: AppConfig) -> Self {
+        let model_registry = ModelRegistry::new(config.model.clone());
+
         Self {
             config: Arc::new(config),
+            model_registry: Arc::new(model_registry),
         }
     }
 }
@@ -67,10 +72,12 @@ pub fn build_router(state: AppState) -> anyhow::Result<Router> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::time::Duration;
 
     use super::*;
     use crate::config::app::{CorsConfig, ServerConfig};
+    use crate::config::model::ModelConfig;
 
     #[test]
     fn returns_error_for_invalid_cors_method() {
@@ -86,6 +93,7 @@ mod tests {
                 allow_credentials: true,
                 max_age: Duration::from_secs(3600),
             },
+            model: ModelConfig::from_values(&HashMap::new()).expect("model config should load"),
         };
 
         let result = build_router(AppState::new(config));

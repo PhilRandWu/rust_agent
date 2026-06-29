@@ -1,8 +1,10 @@
+use crate::config::model::ModelConfig;
 use std::{collections::HashMap, env, time::Duration};
 
 pub struct AppConfig {
     pub server: ServerConfig,
     pub cors: CorsConfig,
+    pub model: ModelConfig,
 }
 
 pub struct ServerConfig {
@@ -62,6 +64,8 @@ impl AppConfig {
             .map(Duration::from_secs)
             .unwrap_or_else(|| Duration::from_secs(3600));
 
+        let model = ModelConfig::from_values(values)?;
+
         Ok(Self {
             server: ServerConfig { host, port },
             cors: CorsConfig {
@@ -71,6 +75,7 @@ impl AppConfig {
                 allow_credentials,
                 max_age,
             },
+            model,
         })
     }
 }
