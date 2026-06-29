@@ -64,4 +64,30 @@ impl FrontendEvent {
     pub fn to_sse_data(&self) -> anyhow::Result<String> {
         Ok(serde_json::to_string(&self)?)
     }
+
+    pub fn analysis_text(summary: impl Into<String>) -> Self {
+        Self::data(
+            FrontendEventEnum::Analysis,
+            json!({
+                "type": "APP_GENERATION",
+                "summary": summary.into(),
+                "tags": ["rust", "llm"]
+            }),
+        )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::sse::event::FrontendEvent;
+
+    #[test]
+    fn serializes_analysis_text_event() {
+        let event = FrontendEvent::analysis_text("hello");
+
+        let data = event.to_sse_data().unwrap();
+
+        assert!(data.contains(r#""type":"analysis""#));
+        assert!(data.contains(r#""summary":"hello""#));
+    }
 }

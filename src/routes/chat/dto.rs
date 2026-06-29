@@ -22,3 +22,14 @@ pub struct ChatMessage {
     #[serde(default)]
     pub attachments: Option<Vec<Value>>,
 }
+
+impl ChatRequest {
+    pub fn last_user_text(self) -> Option<String> {
+        self.messages
+            .iter()
+            .rev()
+            .find(|message| message.role == "user")
+            .and_then(|message| message.content.as_str())
+            .map(ToString::to_string)
+    }
+}
