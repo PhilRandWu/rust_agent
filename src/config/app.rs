@@ -1,12 +1,21 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, time::Duration};
 
 pub struct AppConfig {
     pub server: ServerConfig,
+    pub cors: CorsConfig,
 }
 
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
+}
+
+pub struct CorsConfig {
+    pub allowed_origins: Vec<String>,
+    pub allowed_methods: Vec<String>,
+    pub allowed_headers: Vec<String>,
+    pub allow_credentials: bool,
+    pub max_age: Duration,
 }
 
 impl AppConfig {
@@ -27,10 +36,57 @@ impl AppConfig {
             .unwrap_or("7001")
             .parse::<u16>()?;
 
+        let allowed_origins =
+            value_list(values, "CORS_ALLOWED_ORIGINS", &["http://localhost:3000"]);
+
+        let allowed_methods = value_list(
+            values,
+            "CORS_ALLOWED_METHODS",
+            &["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        );
+
+        let allowed_headers = value_list(
+            values,
+            "CORS_ALLOWED_HEADERS",
+            &["Content-Type", "Authorization", "Accept"],
+        );
+
+        let allow_credentials = values
+            .get("CORS_ALLOW_CREDENTIALS")
+            .map(|s| s.to_lowercase() == "true")
+            .unwrap_or(true);
+
+        let max_age = values
+            .get("CORS_MAX_AGE")
+            .map(|s| s.parse::<u64>().unwrap_or(3600))
+            .map(Duration::from_secs)
+            .unwrap_or_else(|| Duration::from_secs(3600));
+
         Ok(Self {
             server: ServerConfig { host, port },
+            cors: CorsConfig {
+                allowed_origins,
+                allowed_methods,
+                allowed_headers,
+                allow_credentials,
+                max_age,
+            },
         })
     }
+}
+
+fn value_list(values: &HashMap<String, String>, key: &str, default: &[&str]) -> Vec<String> {
+    values
+        .get(key)
+        .map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .filter(|item| !item.is_empty())
+                .map(ToString::to_string)
+                .collect()
+        })
+        .unwrap_or_else(|| default.iter().map(ToString::to_string).collect())
 }
 
 impl ServerConfig {
@@ -54,5 +110,20 @@ mod tests {
 
         assert_eq!(config.server.host, "127.0.0.1");
         assert_eq!(config.server.port, 7001);
+    }
+
+    #[test]
+    fn ignores_empty_items_when_parsing_lists() {
+        let values = HashMap::from([(
+            "CORS_ALLOWED_ORIGINS".to_string(),
+            "http://localhost:3000, ,http://localhost:5173".to_string(),
+        )]);
+
+        let config = AppConfig::from_values(&values).expect("config should load");
+
+        assert_eq!(
+            config.cors.allowed_origins,
+            vec!["http://localhost:3000", "http://localhost:5173"]
+        );
     }
 }
