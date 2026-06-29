@@ -1,5 +1,6 @@
 use crate::llm::client::LlmClient;
 use crate::llm::mock::MockLlmClient;
+use crate::llm::openai_compatible::OpenAiCompatibleClient;
 use crate::llm::provider::ModelProvider;
 use crate::llm::registry::ModelRegistry;
 use std::sync::Arc;
@@ -12,8 +13,8 @@ pub struct LlmService {
 impl LlmService {
     pub fn from_registry(registry: &ModelRegistry) -> anyhow::Result<Self> {
         Ok(Self {
-            main_client: build_client(registry.main_provider())?,
-            vision_client: build_client(registry.vision_provider())?,
+            main_client: build_client(registry.main_provider(), registry.main_config())?,
+            vision_client: build_client(registry.vision_provider(), registry.vision_config())?,
         })
     }
 
@@ -26,13 +27,17 @@ impl LlmService {
     }
 }
 
-fn build_client(provider: ModelProvider) -> anyhow::Result<Arc<dyn LlmClient>> {
+fn build_client(
+    provider: ModelProvider,
+    config: Option<&crate::config::model::ProviderConfig>,
+) -> anyhow::Result<Arc<dyn LlmClient>> {
     match provider {
         ModelProvider::Mock => Ok(Arc::new(MockLlmClient::default())),
         ModelProvider::DeepSeek | ModelProvider::Glm | ModelProvider::Qwen => {
-            anyhow::bail!(
-                "real model provider is not supported before async-openai client is implemented"
-            )
+            let config = config
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("missing provider config for {:?}", provider))?;
+            Ok(Arc::new(OpenAiCompatibleClient::new(provider, config)?))
         }
     }
 }
@@ -61,7 +66,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_real_provider_until_async_openai_client_exists() {
+    fn creates_real_provider_client() {
         let values = HashMap::from([
             ("MAIN_MODEL_PROVIDER".to_string(), "deepseek".to_string()),
             ("DEEPSEEK_API_KEY".to_string(), "test-key".to_string()),
@@ -69,11 +74,8 @@ mod tests {
         let config = ModelConfig::from_values(&values).expect("config should load");
         let registry = ModelRegistry::new(config);
 
-        let error = match LlmService::from_registry(&registry) {
-            Ok(_) => panic!("real provider should be unsupported"),
-            Err(error) => error,
-        };
+        let service = LlmService::from_registry(&registry);
 
-        assert!(error.to_string().contains("async-openai"));
+        assert!(service.is_ok());
     }
 }
