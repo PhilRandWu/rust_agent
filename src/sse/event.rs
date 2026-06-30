@@ -1,5 +1,6 @@
 use crate::agent::analysis::AnalysisOutput;
 use crate::agent::event::AgentEvent;
+use crate::agent::files::FilesOutput;
 use crate::agent::plan::PlanOutput;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -23,6 +24,9 @@ pub enum FrontendEventEnum {
 
     #[serde(rename = "plan")]
     Plan,
+
+    #[serde(rename = "files")]
+    Files,
 
     #[serde(rename = "done")]
     Done,
@@ -108,10 +112,20 @@ impl FrontendEvent {
         )
     }
 
+    pub fn files_output(output: FilesOutput) -> Self {
+        Self::data(
+            FrontendEventEnum::Files,
+            json!({
+                "files": output.files
+            }),
+        )
+    }
+
     pub fn from_agent_event(event: AgentEvent) -> Self {
         match event {
             AgentEvent::Analysis(output) => Self::analysis_output(output),
             AgentEvent::Plan(output) => Self::plan_output(output),
+            AgentEvent::Files(output) => Self::files_output(output),
             AgentEvent::Error(error) => Self::error(error),
             AgentEvent::Done => Self::done(),
         }

@@ -1,6 +1,7 @@
 use crate::agent::analysis::{AnalysisInput, AnalysisNode};
 use crate::agent::context::AgentContext;
 use crate::agent::event::AgentEvent;
+use crate::agent::files::{FilesInput, FilesNode};
 use crate::agent::plan::{PlanInput, PlanNode};
 use crate::llm::client::LlmClient;
 use std::sync::Arc;
@@ -37,9 +38,23 @@ impl AgentRunner {
             }
         };
 
+        let files_node = FilesNode::new();
+        let files_output = match files_node.run(FilesInput::new(plan_output.clone())).await {
+            Ok(output) => output,
+            Err(error) => {
+                return vec![
+                    AgentEvent::Analysis(analysis_output),
+                    AgentEvent::Plan(plan_output),
+                    AgentEvent::Error(error.to_string()),
+                    AgentEvent::Done,
+                ];
+            }
+        };
+
         vec![
             AgentEvent::Analysis(analysis_output),
             AgentEvent::Plan(plan_output),
+            AgentEvent::Files(files_output),
             AgentEvent::Done,
         ]
     }
@@ -151,11 +166,13 @@ mod tests {
             [
                 AgentEvent::Analysis(analysis),
                 AgentEvent::Plan(plan),
+                AgentEvent::Files(files),
                 AgentEvent::Done,
             ] => {
                 assert_eq!(analysis.app_type, "todo");
                 assert_eq!(plan.project_name, "Todo App");
-                assert_eq!(plan.pages[0].route, "/");
+                assert!(files.files.contains_key("package.json"));
+                assert!(files.files.contains_key("src/App.tsx"));
             }
             other => panic!("unexpected events: {other:?}"),
         }
