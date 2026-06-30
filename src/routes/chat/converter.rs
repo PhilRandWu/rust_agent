@@ -14,7 +14,7 @@ pub fn chat_request_to_llm_messages(request: &ChatRequest) -> Vec<LlmMessage> {
 
             match message.role.as_str() {
                 "user" => Some(LlmMessage::user(content)),
-                "assistant" => Some(LlmMessage::user(content)),
+                "assistant" => Some(LlmMessage::assistant(content)),
                 _ => None,
             }
         })

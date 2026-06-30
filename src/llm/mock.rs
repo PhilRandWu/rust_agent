@@ -16,7 +16,14 @@ impl MockLlmClient {
 impl Default for MockLlmClient {
     fn default() -> Self {
         Self {
-            response: "Mock LLM Response".to_string(),
+            response: serde_json::json!({
+                "app_type": "web_app",
+                "summary": "Mock analysis for local development",
+                "features": ["mock feature"],
+                "pages": ["home"],
+                "components": ["MockComponent"]
+            })
+            .to_string(),
         }
     }
 }

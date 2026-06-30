@@ -1,10 +1,9 @@
+use crate::agent::analysis::{AnalysisInput, AnalysisNode};
 use crate::app::AppState;
-use crate::routes::chat::converter::chat_request_to_llm_messages;
 use crate::routes::chat::dto::ChatRequest;
 use crate::sse::event::FrontendEvent;
-use axum::extract::State;
 use axum::{
-    extract::Json,
+    extract::{Json, State},
     response::sse::{Event, Sse},
 };
 use std::convert::Infallible;
@@ -14,10 +13,14 @@ pub async fn chat(
     State(state): State<AppState>,
     Json(request): Json<ChatRequest>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let llm_messages = chat_request_to_llm_messages(&request);
-
-    let analysis_event = match state.llm_service.main_client().chat(&llm_messages).await {
-        Ok(response) => FrontendEvent::analysis_text(response.content),
+    let analysis_event = match AnalysisInput::from_chat_request(&request) {
+        Ok(input) => match AnalysisNode::new(state.llm_service.main_client())
+            .run(input)
+            .await
+        {
+            Ok(output) => FrontendEvent::analysis_output(output),
+            Err(error) => FrontendEvent::error(error.to_string()),
+        },
         Err(error) => FrontendEvent::error(error.to_string()),
     };
 

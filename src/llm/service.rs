@@ -62,7 +62,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.content, "Mock LLM Response");
+        assert!(serde_json::from_str::<serde_json::Value>(&response.content).is_ok());
     }
 
     #[test]

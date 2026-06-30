@@ -1,3 +1,4 @@
+use crate::agent::analysis::AnalysisOutput;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -72,6 +73,20 @@ impl FrontendEvent {
                 "type": "APP_GENERATION",
                 "summary": summary.into(),
                 "tags": ["rust", "llm"]
+            }),
+        )
+    }
+
+    pub fn analysis_output(output: AnalysisOutput) -> Self {
+        Self::data(
+            FrontendEventEnum::Analysis,
+            json!({
+                "type": "APP_GENERATION",
+                "appType": output.app_type,
+                "summary": output.summary,
+                "features": output.features,
+                "pages": output.pages,
+                "components": output.components
             }),
         )
     }
