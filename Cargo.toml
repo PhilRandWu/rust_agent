@@ -16,3 +16,6 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"]}
 tokio-stream = "0.1.18"
 async-trait = "0.1.89"
+
+[dev-dependencies]
+tempfile = "3.15.0"

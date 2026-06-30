@@ -1,0 +1,7 @@
+{
+  "app_type": "todo",
+  "summary": "Mock todo app analysis",
+  "features": ["create todos", "complete todos"],
+  "pages": ["home"],
+  "components": ["TodoList", "TodoInput"]
+}

@@ -1,0 +1,8 @@
+{
+  "files": {
+    "package.json": "{\n  \"scripts\": {\n    \"dev\": \"vite\"\n  },\n  \"dependencies\": {\n    \"@vitejs/plugin-react\": \"latest\",\n    \"vite\": \"latest\",\n    \"react\": \"latest\",\n    \"react-dom\": \"latest\"\n  },\n  \"devDependencies\": {},\n  \"name\": \"todo-app\",\n  \"version\": \"1.0.0\"\n}",
+    "src/App.tsx": "export default function App() {\n  return <h1>Mock Todo App</h1>;\n}\n",
+    "src/main.tsx": "import React from \"react\";\nimport ReactDOM from \"react-dom/client\";\nimport App from \"./App\";\n\nReactDOM.createRoot(document.getElementById(\"root\")!).render(<App />);\n",
+    "src/styles.css": "body { margin: 0; font-family: sans-serif; }\n"
+  }
+}

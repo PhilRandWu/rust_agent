@@ -1,0 +1,21 @@
+{
+  "project_name": "Todo App",
+  "description": "A mock todo management application",
+  "pages": [
+    {
+      "name": "Home",
+      "route": "/",
+      "purpose": "Display and manage todo items"
+    }
+  ],
+  "components": [
+    {
+      "name": "TodoList",
+      "purpose": "Render todo items"
+    },
+    {
+      "name": "TodoInput",
+      "purpose": "Create new todo items"
+    }
+  ]
+}

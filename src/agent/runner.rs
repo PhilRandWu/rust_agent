@@ -1,33 +1,41 @@
-use crate::agent::analysis::{AnalysisInput, AnalysisNode};
+use crate::agent::analysis::{AnalysisInput, AnalysisNode, AnalysisOutput};
 use crate::agent::context::AgentContext;
 use crate::agent::event::AgentEvent;
-use crate::agent::files::{FilesInput, FilesNode};
-use crate::agent::plan::{PlanInput, PlanNode};
+use crate::agent::files::{FilesInput, FilesNode, FilesOutput};
+use crate::agent::mock::{MockNode, MockStore};
+use crate::agent::plan::{PlanInput, PlanNode, PlanOutput};
 use crate::llm::client::LlmClient;
 use std::sync::Arc;
 
 pub struct AgentRunner {
     main_client: Arc<dyn LlmClient>,
+    mock_store: MockStore,
 }
 
 impl AgentRunner {
     pub fn new(main_client: Arc<dyn LlmClient>) -> Self {
-        Self { main_client }
+        Self {
+            main_client,
+            mock_store: MockStore::default(),
+        }
+    }
+
+    pub fn with_mock_store(main_client: Arc<dyn LlmClient>, mock_store: MockStore) -> Self {
+        Self {
+            main_client,
+            mock_store,
+        }
     }
 
     pub async fn run(&self, context: AgentContext) -> Vec<AgentEvent> {
-        let analysis_input = AnalysisInput::new(context.user_request);
-        let analysis_node = AnalysisNode::new(Arc::clone(&self.main_client));
-
-        let analysis_output = match analysis_node.run(analysis_input).await {
+        let analysis_output = match self.run_analysis(&context).await {
             Ok(output) => output,
             Err(error) => {
                 return vec![AgentEvent::Error(error.to_string()), AgentEvent::Done];
             }
         };
 
-        let plan_node = PlanNode::new(Arc::clone(&self.main_client));
-        let plan_output = match plan_node.run(PlanInput::new(analysis_output.clone())).await {
+        let plan_output = match self.run_plan(&context, analysis_output.clone()).await {
             Ok(output) => output,
             Err(error) => {
                 return vec![
@@ -38,8 +46,7 @@ impl AgentRunner {
             }
         };
 
-        let files_node = FilesNode::new();
-        let files_output = match files_node.run(FilesInput::new(plan_output.clone())).await {
+        let files_output = match self.run_files(&context, plan_output.clone()).await {
             Ok(output) => output,
             Err(error) => {
                 return vec![
@@ -57,6 +64,41 @@ impl AgentRunner {
             AgentEvent::Files(files_output),
             AgentEvent::Done,
         ]
+    }
+
+    async fn run_analysis(&self, context: &AgentContext) -> anyhow::Result<AnalysisOutput> {
+        if MockStore::should_mock(context.mock_config.as_ref(), MockNode::Analysis) {
+            return self.mock_store.load(MockNode::Analysis).await;
+        }
+
+        let analysis_input = AnalysisInput::new(context.user_request.clone());
+        let analysis_node = AnalysisNode::new(Arc::clone(&self.main_client));
+
+        analysis_node.run(analysis_input).await
+    }
+
+    async fn run_plan(
+        &self,
+        context: &AgentContext,
+        analysis_output: AnalysisOutput,
+    ) -> anyhow::Result<PlanOutput> {
+        if MockStore::should_mock(context.mock_config.as_ref(), MockNode::Plan) {
+            return self.mock_store.load(MockNode::Plan).await;
+        }
+        let plan_node = PlanNode::new(Arc::clone(&self.main_client));
+        plan_node.run(PlanInput::new(analysis_output)).await
+    }
+
+    async fn run_files(
+        &self,
+        context: &AgentContext,
+        plan_output: PlanOutput,
+    ) -> anyhow::Result<FilesOutput> {
+        if MockStore::should_mock(context.mock_config.as_ref(), MockNode::Files) {
+            return self.mock_store.load(MockNode::Files).await;
+        }
+        let files_node = FilesNode::new();
+        files_node.run(FilesInput::new(plan_output)).await
     }
 }
 
