@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod app;
 pub mod config;
 pub mod logger;

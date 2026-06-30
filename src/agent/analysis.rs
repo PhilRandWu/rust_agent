@@ -1,7 +1,6 @@
 use crate::llm::client::LlmClient;
 use crate::llm::message::LlmMessage;
 use crate::llm::structured::structured_chat;
-use crate::routes::chat::dto::ChatRequest;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -28,19 +27,6 @@ impl AnalysisInput {
         Self {
             user_request: user_request.into(),
         }
-    }
-
-    pub fn from_chat_request(request: &ChatRequest) -> anyhow::Result<Self> {
-        let user_request = request
-            .messages
-            .iter()
-            .rev()
-            .find(|message| message.role == "user")
-            .and_then(|message| message.content.as_str())
-            .filter(|content| !content.is_empty())
-            .ok_or_else(|| anyhow::anyhow!("chat request must contain a user message"))?;
-
-        Ok(Self::new(user_request))
     }
 }
 
@@ -73,8 +59,10 @@ components: string[]"#,
 #[cfg(test)]
 mod tests {
     use crate::agent::analysis::{AnalysisInput, AnalysisNode};
+    use crate::agent::event::AgentEvent;
     use crate::llm::mock::MockLlmClient;
     use crate::routes::chat::dto::{ChatMessage, ChatRequest};
+    use crate::sse::event::FrontendEvent;
     use serde_json::json;
     use std::sync::Arc;
 
@@ -105,34 +93,20 @@ mod tests {
     }
 
     #[test]
-    fn builds_analysis_input_from_last_user_message() {
-        let request = ChatRequest {
-            messages: vec![
-                ChatMessage {
-                    id: Some("1".to_string()),
-                    role: "user".to_string(),
-                    content: json!("First request"),
-                    attachments: None,
-                },
-                ChatMessage {
-                    id: Some("2".to_string()),
-                    role: "assistant".to_string(),
-                    content: json!("Question"),
-                    attachments: None,
-                },
-                ChatMessage {
-                    id: Some("3".to_string()),
-                    role: "user".to_string(),
-                    content: json!("Build a todo app"),
-                    attachments: None,
-                },
-            ],
-            project_id: Some("demo".to_string()),
-            mock_config: None,
-        };
+    fn converts_agent_done_event_to_frontend_event() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Done);
 
-        let input =
-            AnalysisInput::from_chat_request(&request).expect("Failed to create analysis input");
-        assert_eq!(input.user_request, "Build a todo app");
+        let data = event.to_sse_data().unwrap();
+
+        assert_eq!(data, r#"{"type":"done"}"#);
+    }
+
+    #[test]
+    fn converts_agent_error_event_to_frontend_event() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Error("failed".to_string()));
+
+        let data = event.to_sse_data().unwrap();
+
+        assert_eq!(data, r#"{"type":"error","message":"failed"}"#);
     }
 }

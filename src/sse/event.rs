@@ -1,4 +1,5 @@
 use crate::agent::analysis::AnalysisOutput;
+use crate::agent::event::AgentEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -90,10 +91,20 @@ impl FrontendEvent {
             }),
         )
     }
+
+    pub fn from_agent_event(event: AgentEvent) -> Self {
+        match event {
+            AgentEvent::Analysis(data) => Self::analysis_output(data),
+            AgentEvent::Error(error) => Self::error(error),
+            AgentEvent::Done => Self::done(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::agent::analysis::AnalysisOutput;
+    use crate::agent::event::AgentEvent;
     use crate::sse::event::FrontendEvent;
 
     #[test]
@@ -104,5 +115,21 @@ mod tests {
 
         assert!(data.contains(r#""type":"analysis""#));
         assert!(data.contains(r#""summary":"hello""#));
+    }
+
+    #[test]
+    fn converts_agent_analysis_event_to_frontend_event() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Analysis(AnalysisOutput {
+            app_type: "todo".to_string(),
+            summary: "A todo app".to_string(),
+            features: vec!["create todos".to_string()],
+            pages: vec!["home".to_string()],
+            components: vec!["TodoList".to_string()],
+        }));
+
+        let data = event.to_sse_data().unwrap();
+        assert!(data.contains(r#""type":"analysis""#));
+        assert!(data.contains(r#""appType":"todo""#));
+        assert!(data.contains(r#""components":["TodoList"]"#));
     }
 }
