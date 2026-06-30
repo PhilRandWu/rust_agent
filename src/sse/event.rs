@@ -1,5 +1,6 @@
 use crate::agent::analysis::AnalysisOutput;
 use crate::agent::event::AgentEvent;
+use crate::agent::plan::PlanOutput;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -19,6 +20,9 @@ pub struct FrontendEvent {
 pub enum FrontendEventEnum {
     #[serde(rename = "analysis")]
     Analysis,
+
+    #[serde(rename = "plan")]
+    Plan,
 
     #[serde(rename = "done")]
     Done,
@@ -92,9 +96,22 @@ impl FrontendEvent {
         )
     }
 
+    pub fn plan_output(output: PlanOutput) -> Self {
+        Self::data(
+            FrontendEventEnum::Plan,
+            json!({
+                "projectName": output.project_name,
+                "description": output.description,
+                "pages": output.pages,
+                "components": output.components
+            }),
+        )
+    }
+
     pub fn from_agent_event(event: AgentEvent) -> Self {
         match event {
-            AgentEvent::Analysis(data) => Self::analysis_output(data),
+            AgentEvent::Analysis(output) => Self::analysis_output(output),
+            AgentEvent::Plan(output) => Self::plan_output(output),
             AgentEvent::Error(error) => Self::error(error),
             AgentEvent::Done => Self::done(),
         }
@@ -105,6 +122,7 @@ impl FrontendEvent {
 mod tests {
     use crate::agent::analysis::AnalysisOutput;
     use crate::agent::event::AgentEvent;
+    use crate::agent::plan::{ComponentPlan, PagePlan, PlanOutput};
     use crate::sse::event::FrontendEvent;
 
     #[test]
@@ -131,5 +149,29 @@ mod tests {
         assert!(data.contains(r#""type":"analysis""#));
         assert!(data.contains(r#""appType":"todo""#));
         assert!(data.contains(r#""components":["TodoList"]"#));
+    }
+
+    #[test]
+    fn converts_agent_plan_event_to_frontend_event() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Plan(PlanOutput {
+            project_name: "Todo App".to_string(),
+            description: "A todo management application".to_string(),
+            pages: vec![PagePlan {
+                name: "Home".to_string(),
+                route: "/".to_string(),
+                purpose: "Display todos".to_string(),
+            }],
+            components: vec![ComponentPlan {
+                name: "TodoList".to_string(),
+                purpose: "Render todos".to_string(),
+            }],
+        }));
+
+        let data = event.to_sse_data().unwrap();
+
+        assert!(data.contains(r#""type":"plan""#));
+        assert!(data.contains(r#""projectName":"Todo App""#));
+        assert!(data.contains(r#""route":"/""#));
+        assert!(data.contains(r#""name":"TodoList""#));
     }
 }

@@ -61,9 +61,7 @@ mod tests {
     use crate::agent::analysis::{AnalysisInput, AnalysisNode};
     use crate::agent::event::AgentEvent;
     use crate::llm::mock::MockLlmClient;
-    use crate::routes::chat::dto::{ChatMessage, ChatRequest};
     use crate::sse::event::FrontendEvent;
-    use serde_json::json;
     use std::sync::Arc;
 
     #[tokio::test]
