@@ -6,6 +6,7 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MockNode {
     Analysis,
+    Intent,
     Plan,
     Files,
 }
@@ -14,6 +15,7 @@ impl MockNode {
     pub fn key(self) -> &'static str {
         match self {
             Self::Analysis => "analysisNode",
+            Self::Intent => "intentNode",
             Self::Plan => "planNode",
             Self::Files => "filesNode",
         }
@@ -22,6 +24,7 @@ impl MockNode {
     pub fn file_name(self) -> &'static str {
         match self {
             Self::Analysis => "analysis_result.json",
+            Self::Intent => "intent_result.json",
             Self::Plan => "plan_result.json",
             Self::Files => "files_result.json",
         }
@@ -116,5 +119,14 @@ mod tests {
                 name: "demo".to_string()
             }
         );
+    }
+
+    #[test]
+    fn detects_enabled_intent_mock() {
+        let config = serde_json::json!({
+            "intentNode": true
+        });
+
+        assert!(MockStore::should_mock(Some(&config), MockNode::Intent));
     }
 }

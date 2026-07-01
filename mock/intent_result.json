@@ -1,0 +1,9 @@
+{
+  "intent_type": "CREATE",
+  "goal": "Create a todo management app",
+  "constraints": ["Use React", "Keep UI simple"],
+  "user_stories": [
+    "As a user, I can create todos",
+    "As a user, I can mark todos complete"
+  ]
+}
