@@ -1,0 +1,19 @@
+{
+  "capabilities": [
+    {
+      "name": "Todo creation",
+      "description": "Users can create todo items",
+      "priority": "MUST_HAVE"
+    },
+    {
+      "name": "Todo completion",
+      "description": "Users can mark todo items as complete",
+      "priority": "SHOULD_HAVE"
+    },
+    {
+      "name": "Todo filtering",
+      "description": "Users can filter active and completed todos",
+      "priority": "NICE_TO_HAVE"
+    }
+  ]
+}

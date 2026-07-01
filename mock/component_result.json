@@ -1,0 +1,60 @@
+{
+  "components": [
+    {
+      "componentId": "TodoInputForm",
+      "originalId": "Todo input",
+      "componentType": "Form",
+      "description": "Create new todo items from user input",
+      "props": [
+        {
+          "name": "placeholder",
+          "propType": "string",
+          "description": "Input placeholder text",
+          "required": false
+        }
+      ],
+      "events": [
+        {
+          "name": "onCreateTodo",
+          "description": "Triggered when user submits a new todo",
+          "parameters": [
+            {
+              "name": "title",
+              "parameterType": "string"
+            }
+          ]
+        }
+      ],
+      "dataDependencies": ["Todo"],
+      "shadcnComponent": "Form"
+    },
+    {
+      "componentId": "TodoListPanel",
+      "originalId": "Todo list",
+      "componentType": "List",
+      "description": "Display todo items and expose completion interaction",
+      "props": [
+        {
+          "name": "todos",
+          "propType": "Todo[]",
+          "description": "Todo list data",
+          "required": true
+        }
+      ],
+      "events": [
+        {
+          "name": "onToggleTodo",
+          "description": "Triggered when user toggles todo completion",
+          "parameters": [
+            {
+              "name": "id",
+              "parameterType": "string"
+            }
+          ]
+        }
+      ],
+      "dataDependencies": ["Todo"],
+      "shadcnComponent": null
+    }
+  ]
+}

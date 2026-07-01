@@ -1,0 +1,7 @@
+{
+  "layout_pattern": "SINGLE_PAGE",
+  "visual_style": "MODERN",
+  "primary_sections": ["Hero", "Todo input", "Todo list"],
+  "interactions": ["Create todo", "Mark todo complete"],
+  "responsive_notes": ["Stack content vertically on mobile"]
+}

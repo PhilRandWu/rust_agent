@@ -7,6 +7,9 @@ use std::path::PathBuf;
 pub enum MockNode {
     Analysis,
     Intent,
+    Capability,
+    Ui,
+    Component,
     Plan,
     Files,
 }
@@ -16,6 +19,9 @@ impl MockNode {
         match self {
             Self::Analysis => "analysisNode",
             Self::Intent => "intentNode",
+            Self::Capability => "capabilityNode",
+            Self::Ui => "uiNode",
+            Self::Component => "componentNode",
             Self::Plan => "planNode",
             Self::Files => "filesNode",
         }
@@ -25,6 +31,9 @@ impl MockNode {
         match self {
             Self::Analysis => "analysis_result.json",
             Self::Intent => "intent_result.json",
+            Self::Capability => "capability_result.json",
+            Self::Ui => "ui_result.json",
+            Self::Component => "component_result.json",
             Self::Plan => "plan_result.json",
             Self::Files => "files_result.json",
         }
