@@ -1,0 +1,67 @@
+{
+  "files": [
+    {
+      "path": "/App.tsx",
+      "kind": "overwrite",
+      "description": "Application entry component",
+      "sourceCorrelation": null,
+      "generatedBy": "appEntry"
+    },
+    {
+      "path": "/pages/Home.tsx",
+      "kind": "new",
+      "description": "Home page that composes todo business components",
+      "sourceCorrelation": "Home",
+      "generatedBy": "page"
+    },
+    {
+      "path": "/components/TodoInputForm.tsx",
+      "kind": "new",
+      "description": "Form component for creating todo items",
+      "sourceCorrelation": "TodoInputForm",
+      "generatedBy": "component"
+    },
+    {
+      "path": "/components/TodoListPanel.tsx",
+      "kind": "new",
+      "description": "List component for rendering todo items",
+      "sourceCorrelation": "TodoListPanel",
+      "generatedBy": "component"
+    },
+    {
+      "path": "/types/todo.ts",
+      "kind": "new",
+      "description": "Todo TypeScript type definitions",
+      "sourceCorrelation": "Todo",
+      "generatedBy": "typeDefinition"
+    },
+    {
+      "path": "/data/todos.ts",
+      "kind": "new",
+      "description": "Todo mock data",
+      "sourceCorrelation": "Todo",
+      "generatedBy": "mockData"
+    },
+    {
+      "path": "/hooks/useTodos.ts",
+      "kind": "new",
+      "description": "Todo state management hook",
+      "sourceCorrelation": "Todo",
+      "generatedBy": "hook"
+    },
+    {
+      "path": "/lib/utils.ts",
+      "kind": "new",
+      "description": "Shared className merge utility",
+      "sourceCorrelation": null,
+      "generatedBy": "scaffold"
+    },
+    {
+      "path": "/styles.css",
+      "kind": "template",
+      "description": "Global styles",
+      "sourceCorrelation": null,
+      "generatedBy": "template"
+    }
+  ]
+}
