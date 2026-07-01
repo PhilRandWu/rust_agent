@@ -4,6 +4,7 @@ pub mod component;
 pub mod dependency;
 pub mod files;
 pub mod intent;
+pub mod mock_data;
 pub mod plan;
 pub mod structure;
 pub mod typegen;
