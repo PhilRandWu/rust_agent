@@ -1,6 +1,7 @@
-use crate::agent::context::AgentContext;
+use crate::agent::adapters::registry::RouteRegistry;
+use crate::agent::adapters::route::RouteFlow;
 use crate::agent::event::AgentEvent;
-use crate::agent::runner::AgentRunner;
+use crate::agent::graph::{AgentGraph, TraditionalGraph};
 use crate::app::AppState;
 use crate::routes::chat::dto::ChatRequest;
 use crate::sse::event::FrontendEvent;
@@ -15,12 +16,14 @@ pub async fn chat(
     State(state): State<AppState>,
     Json(request): Json<ChatRequest>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    let agent_events = match AgentContext::from_chat_request(&request) {
-        Ok(context) => {
-            AgentRunner::new(state.llm_service.main_client())
-                .run(context)
-                .await
-        }
+    let agent_events = match RouteRegistry::new().resolve(&request) {
+        Ok(route) => match route.flow {
+            RouteFlow::Traditional => {
+                TraditionalGraph::new(state.llm_service.main_client())
+                    .run(route.context)
+                    .await
+            }
+        },
         Err(error) => vec![AgentEvent::Error(error.to_string()), AgentEvent::Done],
     };
 
