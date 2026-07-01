@@ -6,4 +6,5 @@ pub mod files;
 pub mod intent;
 pub mod plan;
 pub mod structure;
+pub mod typegen;
 pub mod ui;

@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+      "path": "/types/todo.ts",
+      "code": "export interface Todo {\n  id: string;\n  title: string;\n  completed: boolean;\n  createdAt: string;\n}\n",
+      "modelId": "Todo"
+    }
+  ]
+}
