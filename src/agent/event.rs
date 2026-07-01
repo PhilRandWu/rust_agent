@@ -1,6 +1,6 @@
-use crate::agent::analysis::AnalysisOutput;
-use crate::agent::files::FilesOutput;
-use crate::agent::plan::PlanOutput;
+use crate::agent::flows::traditional::analysis::schema::AnalysisOutput;
+use crate::agent::flows::traditional::files::schema::FilesOutput;
+use crate::agent::flows::traditional::plan::schema::PlanOutput;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentEvent {

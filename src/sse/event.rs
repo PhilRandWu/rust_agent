@@ -1,7 +1,7 @@
-use crate::agent::analysis::AnalysisOutput;
 use crate::agent::event::AgentEvent;
-use crate::agent::files::FilesOutput;
-use crate::agent::plan::PlanOutput;
+use crate::agent::flows::traditional::analysis::schema::AnalysisOutput;
+use crate::agent::flows::traditional::files::schema::FilesOutput;
+use crate::agent::flows::traditional::plan::schema::PlanOutput;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -134,10 +134,28 @@ impl FrontendEvent {
 
 #[cfg(test)]
 mod tests {
-    use crate::agent::analysis::AnalysisOutput;
     use crate::agent::event::AgentEvent;
-    use crate::agent::plan::{ComponentPlan, PagePlan, PlanOutput};
+    use crate::agent::flows::traditional::analysis::schema::AnalysisOutput;
+    use crate::agent::flows::traditional::plan::schema::{ComponentPlan, PagePlan, PlanOutput};
     use crate::sse::event::FrontendEvent;
+
+    #[test]
+    fn converts_agent_done_event_to_frontend_event() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Done);
+
+        let data = event.to_sse_data().unwrap();
+
+        assert_eq!(data, r#"{"type":"done"}"#);
+    }
+
+    #[test]
+    fn converts_agent_error_event_to_frontend_event() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Error("failed".to_string()));
+
+        let data = event.to_sse_data().unwrap();
+
+        assert_eq!(data, r#"{"type":"error","message":"failed"}"#);
+    }
 
     #[test]
     fn serializes_analysis_text_event() {

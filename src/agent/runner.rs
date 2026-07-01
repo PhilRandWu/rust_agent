@@ -1,9 +1,9 @@
-use crate::agent::analysis::{AnalysisInput, AnalysisNode, AnalysisOutput};
 use crate::agent::context::AgentContext;
 use crate::agent::event::AgentEvent;
-use crate::agent::files::{FilesInput, FilesNode, FilesOutput};
+use crate::agent::flows::traditional::analysis::{AnalysisInput, AnalysisNode, AnalysisOutput};
+use crate::agent::flows::traditional::files::{FilesInput, FilesNode, FilesOutput};
+use crate::agent::flows::traditional::plan::{PlanInput, PlanNode, PlanOutput};
 use crate::agent::mock::{MockNode, MockStore};
-use crate::agent::plan::{PlanInput, PlanNode, PlanOutput};
 use crate::llm::client::LlmClient;
 use std::sync::Arc;
 
