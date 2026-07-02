@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+      "path": "/services/todoService.ts",
+      "content": "import type { Todo } from '../types/todo';\nimport { MOCK_TODOS } from '../data/todos';\n\nexport function getAllTodos(): Todo[] {\n  return MOCK_TODOS;\n}\n\nexport function getTodoById(id: string): Todo | undefined {\n  return MOCK_TODOS.find(todo => todo.id === id);\n}\n",
+      "description": "Todo data access service"
+    }
+  ]
+}

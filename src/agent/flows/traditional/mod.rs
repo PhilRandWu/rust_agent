@@ -6,6 +6,7 @@ pub mod files;
 pub mod intent;
 pub mod mock_data;
 pub mod plan;
+pub mod service;
 pub mod structure;
 pub mod typegen;
 pub mod ui;
