@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+      "path": "/hooks/useTodos.ts",
+      "content": "import { useState } from 'react';\nimport type { Todo } from '../types/todo';\nimport { getAllTodos } from '../services/todoService';\n\nexport function useTodos() {\n  const [todos, setTodos] = useState<Todo[]>(() => getAllTodos());\n\n  const addTodo = (title: string) => {\n    const nextTodo: Todo = {\n      id: `todo-${Date.now()}`,\n      title,\n      completed: false,\n      createdAt: new Date().toISOString().slice(0, 10)\n    };\n    setTodos(current => [nextTodo, ...current]);\n  };\n\n  const toggleTodo = (id: string) => {\n    setTodos(current => current.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo));\n  };\n\n  return { todos, addTodo, toggleTodo };\n}\n",
+      "description": "Todo state hook"
+    }
+  ]
+}

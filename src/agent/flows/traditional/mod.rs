@@ -3,6 +3,7 @@ pub mod capability;
 pub mod component;
 pub mod dependency;
 pub mod files;
+pub mod hooks;
 pub mod intent;
 pub mod mock_data;
 pub mod plan;
