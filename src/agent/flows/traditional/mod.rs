@@ -1,4 +1,6 @@
 pub mod analysis;
+pub mod app_gen;
+pub mod assemble;
 pub mod capability;
 pub mod component;
 pub mod component_gen;

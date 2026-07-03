@@ -1,0 +1,15 @@
+{
+  "files": {
+    "/App.tsx": "import React from 'react';\nimport Home from './pages/Home';\n\nexport default function App() {\n  return <Home />;\n}\n",
+    "/src/main.tsx": "import React from \"react\";\nimport ReactDOM from \"react-dom/client\";\nimport App from \"../App\";\nimport \"./styles.css\";\n\nReactDOM.createRoot(document.getElementById(\"root\")!).render(\n  <React.StrictMode>\n    <App />\n  </React.StrictMode>\n);\n",
+    "/src/styles.css": "body { margin: 0; }"
+  },
+  "stats": {
+    "totalFiles": 3,
+    "categories": {
+      "app": 1,
+      "entry": 1,
+      "styles": 1
+    }
+  }
+}

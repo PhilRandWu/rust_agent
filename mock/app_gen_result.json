@@ -1,0 +1,5 @@
+{
+  "path": "/App.tsx",
+  "content": "import React from 'react';\nimport Home from './pages/Home';\n\nexport default function App() {\n  return <Home />;\n}\n",
+  "description": "Application root rendering Home page"
+}
