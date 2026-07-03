@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "/components/TodoInputForm.tsx",
+      "content": "import React, { useState } from 'react';\nimport { Plus } from 'lucide-react';\n\ninterface TodoInputFormProps {\n  onCreateTodo?: (title: string) => void;\n}\n\nexport default function TodoInputForm({ onCreateTodo }: TodoInputFormProps) {\n  const [title, setTitle] = useState('');\n\n  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {\n    event.preventDefault();\n    const nextTitle = title.trim();\n    if (!nextTitle) return;\n    onCreateTodo?.(nextTitle);\n    setTitle('');\n  };\n\n  return (\n    <form onSubmit={handleSubmit} className=\"flex gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200\">\n      <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder=\"Add a new todo\" className=\"min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-blue-500\" />\n      <button type=\"submit\" className=\"inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700\">\n        <Plus className=\"h-4 w-4\" /> Add\n      </button>\n    </form>\n  );\n}\n",
+      "description": "Todo input component"
+    },
+    {
+      "path": "/components/TodoListPanel.tsx",
+      "content": "import React from 'react';\nimport type { Todo } from '../types/todo';\n\ninterface TodoListPanelProps {\n  todos?: Todo[];\n  onToggleTodo?: (id: string) => void;\n}\n\nexport default function TodoListPanel({ todos = [], onToggleTodo }: TodoListPanelProps) {\n  if (!todos.length) {\n    return <div className=\"rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500\">No todos yet</div>;\n  }\n\n  return (\n    <div className=\"space-y-3\">\n      {todos.map((todo) => (\n        <button key={todo.id} onClick={() => onToggleTodo?.(todo.id)} className=\"flex w-full items-center justify-between rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 hover:ring-blue-200\">\n          <span className={todo.completed ? 'text-slate-400 line-through' : 'text-slate-900'}>{todo.title}</span>\n          <span className=\"text-sm text-slate-400\">{todo.completed ? 'Done' : 'Todo'}</span>\n        </button>\n      ))}\n    </div>\n  );\n}\n",
+      "description": "Todo list component"
+    }
+  ]
+}

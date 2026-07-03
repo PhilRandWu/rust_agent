@@ -1,6 +1,7 @@
 pub mod analysis;
 pub mod capability;
 pub mod component;
+pub mod component_gen;
 pub mod dependency;
 pub mod files;
 pub mod hooks;
