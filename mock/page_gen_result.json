@@ -1,0 +1,10 @@
+
+{
+  "files": [
+    {
+      "path": "/pages/Home.tsx",
+      "content": "import React from 'react';\nimport TodoInputForm from '../components/TodoInputForm';\nimport TodoListPanel from '../components/TodoListPanel';\nimport { useTodos } from '../hooks/useTodos';\n\nexport default function Home() {\n  const { todos, addTodo, toggleTodo } = useTodos();\n\n  return (\n    <main className=\"min-h-screen bg-slate-50 px-6 py-10\">\n      <section className=\"mx-auto max-w-3xl space-y-8\">\n        <div className=\"space-y-3 text-center\">\n          <p className=\"text-sm font-medium uppercase tracking-[0.2em] text-blue-600\">Todo App</p>\n          <h1 className=\"text-4xl font-bold tracking-tight text-slate-950\">Plan your day with clarity</h1>\n          <p className=\"text-slate-500\">Create todos, complete tasks, and keep your workflow focused.</p>\n        </div>\n        <TodoInputForm onCreateTodo={addTodo} />\n        <TodoListPanel todos={todos} onToggleTodo={toggleTodo} />\n      </section>\n    </main>\n  );\n}\n",
+      "description": "Home page composed from todo input and list components"
+    }
+  ]
+}
