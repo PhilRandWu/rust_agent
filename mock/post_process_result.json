@@ -1,0 +1,6 @@
+{
+  "files": {
+    "/App.tsx": "import React from 'react';\nimport Home from './pages/Home';\n\nexport default function App() {\n  return <Home />;\n}\n"
+  },
+  "totalFixes": 0
+}

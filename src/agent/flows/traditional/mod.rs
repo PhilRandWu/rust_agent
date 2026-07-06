@@ -12,6 +12,7 @@ pub mod layout;
 pub mod mock_data;
 pub mod page_gen;
 pub mod plan;
+pub mod post_process;
 pub mod service;
 pub mod structure;
 pub mod style_gen;
