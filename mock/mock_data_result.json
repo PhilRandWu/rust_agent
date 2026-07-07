@@ -1,0 +1,9 @@
+{
+  "files": [
+    {
+      "path": "/data/todos.ts",
+      "content": "import type { Todo } from '../types/todo';\n\nexport const MOCK_TODOS: Todo[] = [\n  { id: 'todo-1', title: 'Learn Rust', completed: false },\n  { id: 'todo-2', title: 'Build agent', completed: true }\n];\n",
+      "description": "Mock todo entities used by the app in demo mode"
+    }
+  ]
+}
