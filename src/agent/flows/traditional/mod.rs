@@ -11,7 +11,6 @@ pub mod intent;
 pub mod layout;
 pub mod mock_data;
 pub mod page_gen;
-pub mod plan;
 pub mod post_process;
 pub mod service;
 pub mod structure;
@@ -19,3 +18,6 @@ pub mod style_gen;
 pub mod typegen;
 pub mod ui;
 pub mod utils;
+
+// legacy / simple flow
+pub mod plan;
