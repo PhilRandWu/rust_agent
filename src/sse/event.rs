@@ -22,6 +22,60 @@ pub enum FrontendEventEnum {
     #[serde(rename = "analysis")]
     Analysis,
 
+    #[serde(rename = "intent")]
+    Intent,
+
+    #[serde(rename = "capability")]
+    Capability,
+
+    #[serde(rename = "ui")]
+    Ui,
+
+    #[serde(rename = "component")]
+    Component,
+
+    #[serde(rename = "structure")]
+    Structure,
+
+    #[serde(rename = "dependency")]
+    Dependency,
+
+    #[serde(rename = "type")]
+    Type,
+
+    #[serde(rename = "utils")]
+    Utils,
+
+    #[serde(rename = "mockData")]
+    MockData,
+
+    #[serde(rename = "service")]
+    Service,
+
+    #[serde(rename = "hooks")]
+    Hooks,
+
+    #[serde(rename = "componentGen")]
+    ComponentGen,
+
+    #[serde(rename = "pageGen")]
+    PageGen,
+
+    #[serde(rename = "layout")]
+    Layout,
+
+    #[serde(rename = "styleGen")]
+    StyleGen,
+
+    #[serde(rename = "appGen")]
+    AppGen,
+
+    #[serde(rename = "assemble")]
+    Assemble,
+
+    #[serde(rename = "postProcess")]
+    PostProcess,
+
     #[serde(rename = "plan")]
     Plan,
 
@@ -121,9 +175,49 @@ impl FrontendEvent {
         )
     }
 
+    fn json_event<T>(event_type: FrontendEventEnum, output: T) -> Self
+    where
+        T: Serialize,
+    {
+        Self::data(
+            event_type,
+            serde_json::to_value(output).unwrap_or_else(|error| {
+                json!({
+                    "serializationError": error.to_string()
+                })
+            }),
+        )
+    }
+
     pub fn from_agent_event(event: AgentEvent) -> Self {
         match event {
             AgentEvent::Analysis(output) => Self::analysis_output(output),
+            AgentEvent::Intent(output) => Self::json_event(FrontendEventEnum::Intent, output),
+            AgentEvent::Capability(output) => {
+                Self::json_event(FrontendEventEnum::Capability, output)
+            }
+            AgentEvent::Ui(output) => Self::json_event(FrontendEventEnum::Ui, output),
+            AgentEvent::Component(output) => Self::json_event(FrontendEventEnum::Component, output),
+            AgentEvent::Structure(output) => Self::json_event(FrontendEventEnum::Structure, output),
+            AgentEvent::Dependency(output) => {
+                Self::json_event(FrontendEventEnum::Dependency, output)
+            }
+            AgentEvent::Type(output) => Self::json_event(FrontendEventEnum::Type, output),
+            AgentEvent::Utils(output) => Self::json_event(FrontendEventEnum::Utils, output),
+            AgentEvent::MockData(output) => Self::json_event(FrontendEventEnum::MockData, output),
+            AgentEvent::Service(output) => Self::json_event(FrontendEventEnum::Service, output),
+            AgentEvent::Hooks(output) => Self::json_event(FrontendEventEnum::Hooks, output),
+            AgentEvent::ComponentGen(output) => {
+                Self::json_event(FrontendEventEnum::ComponentGen, output)
+            }
+            AgentEvent::PageGen(output) => Self::json_event(FrontendEventEnum::PageGen, output),
+            AgentEvent::Layout(output) => Self::json_event(FrontendEventEnum::Layout, output),
+            AgentEvent::StyleGen(output) => Self::json_event(FrontendEventEnum::StyleGen, output),
+            AgentEvent::AppGen(output) => Self::json_event(FrontendEventEnum::AppGen, output),
+            AgentEvent::Assemble(output) => Self::json_event(FrontendEventEnum::Assemble, output),
+            AgentEvent::PostProcess(output) => {
+                Self::json_event(FrontendEventEnum::PostProcess, output)
+            }
             AgentEvent::Plan(output) => Self::plan_output(output),
             AgentEvent::Files(output) => Self::files_output(output),
             AgentEvent::Error(error) => Self::error(error),
