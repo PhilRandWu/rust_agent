@@ -283,41 +283,29 @@ impl AgentRunner {
         send(tx, AgentEvent::AppGen(app_gen.clone())).await?;
         state.app_gen = Some(app_gen.clone());
 
-        let assemble = if self.should_mock(&context, MockNode::Assemble) {
-            self.mock_store.load(MockNode::Assemble).await?
-        } else {
-            AssembleNode::new()
-                .run(AssembleInput::new(
-                    dependency,
-                    types,
-                    utils,
-                    mock_data,
-                    service,
-                    hooks,
-                    component_gen,
-                    page_gen,
-                    layout,
-                    style_gen,
-                    app_gen,
-                ))
-                .await?
-        };
+        let assemble = AssembleNode::new()
+            .run(AssembleInput::new(
+                dependency,
+                types,
+                utils,
+                mock_data,
+                service,
+                hooks,
+                component_gen,
+                page_gen,
+                layout,
+                style_gen,
+                app_gen,
+            ))
+            .await?;
         send(tx, AgentEvent::Assemble(assemble.clone())).await?;
         state.assemble = Some(assemble.clone());
 
-        let post_process = if self.should_mock(&context, MockNode::PostProcess) {
-            self.mock_store.load(MockNode::PostProcess).await?
-        } else {
-            PostProcessNode::new()
-                .run(PostProcessInput::new(assemble))
-                .await?
-        };
+        let post_process = PostProcessNode::new()
+            .run(PostProcessInput::new(assemble))
+            .await?;
         send(tx, AgentEvent::PostProcess(post_process.clone())).await?;
         state.post_process = Some(post_process);
-
-        if let Some(files) = state.final_files() {
-            send(tx, AgentEvent::Files(files)).await?;
-        }
 
         Ok(())
     }
@@ -363,9 +351,7 @@ mod tests {
             "pageGenNode": true,
             "layoutNode": true,
             "styleGenNode": true,
-            "appGenNode": true,
-            "assembleNode": true,
-            "postProcessNode": true
+            "appGenNode": true
         })
     }
 
@@ -488,8 +474,28 @@ mod tests {
         );
 
         match events.as_slice() {
-            [.., AgentEvent::Files(files), AgentEvent::Done] => {
-                assert!(!files.files.is_empty(), "expected non-empty files");
+            [.., AgentEvent::PostProcess(post_process), AgentEvent::Done] => {
+                assert!(
+                    !post_process.files.is_empty(),
+                    "expected non-empty post-process files"
+                );
+                assert!(
+                    post_process.files.contains_key("/pages/Home.tsx"),
+                    "expected /pages/Home.tsx in final files, got keys: {:?}",
+                    post_process.files.keys().collect::<Vec<_>>()
+                );
+                assert!(
+                    post_process.files.contains_key("/App.tsx"),
+                    "expected /App.tsx in final files"
+                );
+                assert!(
+                    !post_process.files.contains_key("/src/main.tsx"),
+                    "/src/main.tsx should not be emitted (Sandpack template owns entry)"
+                );
+                assert!(
+                    post_process.files.contains_key("/styles.css"),
+                    "expected /styles.css (template path) in final files"
+                );
             }
             other => panic!("unexpected trailing events: {other:?}"),
         }
@@ -533,12 +539,12 @@ mod tests {
             .iter()
             .position(|e| matches!(e, AgentEvent::Intent(_)))
             .unwrap();
-        let idx_files = remaining
+        let idx_post_process = remaining
             .iter()
-            .position(|e| matches!(e, AgentEvent::Files(_)))
+            .position(|e| matches!(e, AgentEvent::PostProcess(_)))
             .unwrap();
         assert!(idx_analysis < idx_intent);
-        assert!(idx_intent < idx_files);
+        assert!(idx_intent < idx_post_process);
         assert!(matches!(remaining.last(), Some(AgentEvent::Done)));
 
         handle.await.expect("producer task should finish");

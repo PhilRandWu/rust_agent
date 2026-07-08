@@ -23,13 +23,6 @@ impl AssembleNode {
         add_file(
             &mut files,
             &mut categories,
-            "/src/main.tsx",
-            main_tsx(),
-            "entry",
-        );
-        add_file(
-            &mut files,
-            &mut categories,
             &input.app.path,
             input.app.content,
             "app",
@@ -37,7 +30,7 @@ impl AssembleNode {
         add_file(
             &mut files,
             &mut categories,
-            "/src/styles.css",
+            "/styles.css",
             input.styles.content,
             "styles",
         );
@@ -138,21 +131,6 @@ fn normalize_path(path: &str) -> String {
     }
 }
 
-fn main_tsx() -> String {
-    r#"import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "../App";
-import "./styles.css";
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
-"#
-    .to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,9 +187,9 @@ mod tests {
             .expect("assemble node should run");
 
         assert!(output.files.contains_key("/package.json"));
-        assert!(output.files.contains_key("/src/main.tsx"));
         assert!(output.files.contains_key("/App.tsx"));
-        assert!(output.files.contains_key("/src/styles.css"));
+        assert!(output.files.contains_key("/styles.css"));
+        assert!(!output.files.contains_key("/src/main.tsx"));
         assert_eq!(output.stats.categories.get("app"), Some(&1));
     }
 }

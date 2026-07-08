@@ -4,6 +4,7 @@ use crate::agent::flows::traditional::files::schema::FilesOutput;
 use crate::agent::flows::traditional::plan::schema::PlanOutput;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Serialize)]
 pub struct FrontendEvent {
@@ -25,13 +26,13 @@ pub enum FrontendEventEnum {
     #[serde(rename = "intent")]
     Intent,
 
-    #[serde(rename = "capability")]
+    #[serde(rename = "capabilities")]
     Capability,
 
     #[serde(rename = "ui")]
     Ui,
 
-    #[serde(rename = "component")]
+    #[serde(rename = "components")]
     Component,
 
     #[serde(rename = "structure")]
@@ -40,7 +41,7 @@ pub enum FrontendEventEnum {
     #[serde(rename = "dependency")]
     Dependency,
 
-    #[serde(rename = "type")]
+    #[serde(rename = "types")]
     Type,
 
     #[serde(rename = "utils")]
@@ -55,26 +56,20 @@ pub enum FrontendEventEnum {
     #[serde(rename = "hooks")]
     Hooks,
 
-    #[serde(rename = "componentGen")]
+    #[serde(rename = "componentsCode")]
     ComponentGen,
 
-    #[serde(rename = "pageGen")]
+    #[serde(rename = "pagesCode")]
     PageGen,
 
-    #[serde(rename = "layout")]
+    #[serde(rename = "layouts")]
     Layout,
 
-    #[serde(rename = "styleGen")]
+    #[serde(rename = "styles")]
     StyleGen,
 
-    #[serde(rename = "appGen")]
+    #[serde(rename = "app")]
     AppGen,
-
-    #[serde(rename = "assemble")]
-    Assemble,
-
-    #[serde(rename = "postProcess")]
-    PostProcess,
 
     #[serde(rename = "plan")]
     Plan,
@@ -175,6 +170,10 @@ impl FrontendEvent {
         )
     }
 
+    fn assemble_files_event(files: BTreeMap<String, String>) -> Self {
+        Self::data(FrontendEventEnum::Files, json!({ "files": files }))
+    }
+
     fn json_event<T>(event_type: FrontendEventEnum, output: T) -> Self
     where
         T: Serialize,
@@ -214,10 +213,8 @@ impl FrontendEvent {
             AgentEvent::Layout(output) => Self::json_event(FrontendEventEnum::Layout, output),
             AgentEvent::StyleGen(output) => Self::json_event(FrontendEventEnum::StyleGen, output),
             AgentEvent::AppGen(output) => Self::json_event(FrontendEventEnum::AppGen, output),
-            AgentEvent::Assemble(output) => Self::json_event(FrontendEventEnum::Assemble, output),
-            AgentEvent::PostProcess(output) => {
-                Self::json_event(FrontendEventEnum::PostProcess, output)
-            }
+            AgentEvent::Assemble(output) => Self::assemble_files_event(output.files),
+            AgentEvent::PostProcess(output) => Self::assemble_files_event(output.files),
             AgentEvent::Plan(output) => Self::plan_output(output),
             AgentEvent::Files(output) => Self::files_output(output),
             AgentEvent::Error(error) => Self::error(error),
@@ -231,7 +228,7 @@ mod tests {
     use crate::agent::event::AgentEvent;
     use crate::agent::flows::traditional::analysis::schema::AnalysisOutput;
     use crate::agent::flows::traditional::plan::schema::{ComponentPlan, PagePlan, PlanOutput};
-    use crate::sse::event::FrontendEvent;
+    use crate::sse::event::{FrontendEvent, FrontendEventEnum};
 
     #[test]
     fn converts_agent_done_event_to_frontend_event() {
@@ -299,5 +296,84 @@ mod tests {
         assert!(data.contains(r#""projectName":"Todo App""#));
         assert!(data.contains(r#""route":"/""#));
         assert!(data.contains(r#""name":"TodoList""#));
+    }
+
+    #[test]
+    fn serializes_all_traditional_types_matching_frontend_flow() {
+        use FrontendEventEnum::*;
+        let cases: &[(FrontendEventEnum, &str)] = &[
+            (Analysis, "analysis"),
+            (Intent, "intent"),
+            (Capability, "capabilities"),
+            (Ui, "ui"),
+            (Component, "components"),
+            (Structure, "structure"),
+            (Dependency, "dependency"),
+            (Type, "types"),
+            (Utils, "utils"),
+            (MockData, "mockData"),
+            (Service, "service"),
+            (Hooks, "hooks"),
+            (ComponentGen, "componentsCode"),
+            (PageGen, "pagesCode"),
+            (Layout, "layouts"),
+            (StyleGen, "styles"),
+            (AppGen, "app"),
+            (Plan, "plan"),
+            (Files, "files"),
+            (Done, "done"),
+            (Error, "error"),
+        ];
+        for (variant, expected) in cases {
+            let json_value = serde_json::to_string(variant).unwrap();
+            assert_eq!(
+                json_value,
+                format!("\"{expected}\""),
+                "variant {variant:?} should serialize to {expected}"
+            );
+        }
+    }
+
+    #[test]
+    fn maps_assemble_agent_event_to_files_frontend_event() {
+        use crate::agent::flows::traditional::assemble::{AssembleOutput, AssembleStats};
+        use std::collections::BTreeMap;
+
+        let mut files = BTreeMap::new();
+        files.insert(
+            "App.tsx".to_string(),
+            "export default () => null;".to_string(),
+        );
+
+        let event = FrontendEvent::from_agent_event(AgentEvent::Assemble(AssembleOutput {
+            files: files.clone(),
+            stats: AssembleStats {
+                total_files: 1,
+                categories: BTreeMap::new(),
+            },
+        }));
+
+        let data = event.to_sse_data().unwrap();
+        assert!(data.contains(r#""type":"files""#));
+        assert!(data.contains(r#""App.tsx""#));
+        assert!(!data.contains(r#""stats""#));
+    }
+
+    #[test]
+    fn maps_post_process_agent_event_to_files_frontend_event() {
+        use crate::agent::flows::traditional::post_process::PostProcessOutput;
+        use std::collections::BTreeMap;
+
+        let mut files = BTreeMap::new();
+        files.insert("App.tsx".to_string(), "// fixed\n".to_string());
+
+        let event = FrontendEvent::from_agent_event(AgentEvent::PostProcess(PostProcessOutput {
+            files: files.clone(),
+            total_fixes: 1,
+        }));
+
+        let data = event.to_sse_data().unwrap();
+        assert!(data.contains(r#""type":"files""#));
+        assert!(!data.contains(r#""totalFixes""#));
     }
 }

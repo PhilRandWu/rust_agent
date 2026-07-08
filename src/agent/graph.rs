@@ -85,9 +85,7 @@ mod tests {
             "pageGenNode": true,
             "layoutNode": true,
             "styleGenNode": true,
-            "appGenNode": true,
-            "assembleNode": true,
-            "postProcessNode": true
+            "appGenNode": true
         })
     }
 
@@ -126,8 +124,11 @@ mod tests {
         );
 
         match events.as_slice() {
-            [.., AgentEvent::Files(files), AgentEvent::Done] => {
-                assert!(!files.files.is_empty(), "expected non-empty files");
+            [.., AgentEvent::PostProcess(post_process), AgentEvent::Done] => {
+                assert!(
+                    !post_process.files.is_empty(),
+                    "expected non-empty post-process files"
+                );
             }
             other => panic!("unexpected trailing events: {other:?}"),
         }
