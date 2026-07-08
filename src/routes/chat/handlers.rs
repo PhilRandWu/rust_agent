@@ -1,7 +1,7 @@
 use crate::agent::adapters::registry::RouteRegistry;
 use crate::agent::adapters::route::RouteFlow;
 use crate::agent::event::AgentEvent;
-use crate::agent::graph::{AgentGraph, TraditionalGraph};
+use crate::agent::graph::{TraditionalGraph, collect_events};
 use crate::app::AppState;
 use crate::routes::chat::dto::ChatRequest;
 use crate::sse::event::FrontendEvent;
@@ -19,9 +19,8 @@ pub async fn chat(
     let agent_events = match RouteRegistry::new().resolve(&request) {
         Ok(route) => match route.flow {
             RouteFlow::Traditional => {
-                TraditionalGraph::new(state.llm_service.main_client())
-                    .run(route.context)
-                    .await
+                let graph = TraditionalGraph::new(state.llm_service.main_client());
+                collect_events(&graph, route.context).await
             }
         },
         Err(error) => vec![AgentEvent::Error(error.to_string()), AgentEvent::Done],

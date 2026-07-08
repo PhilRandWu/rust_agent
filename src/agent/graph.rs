@@ -4,10 +4,11 @@ use crate::agent::mock::MockStore;
 use crate::agent::runner::AgentRunner;
 use crate::llm::client::LlmClient;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 #[async_trait::async_trait]
 pub trait AgentGraph: Send + Sync {
-    async fn run(&self, context: AgentContext) -> Vec<AgentEvent>;
+    async fn run_streaming(&self, context: AgentContext, tx: mpsc::Sender<AgentEvent>);
 }
 
 pub struct TraditionalGraph {
@@ -30,16 +31,37 @@ impl TraditionalGraph {
 
 #[async_trait::async_trait]
 impl AgentGraph for TraditionalGraph {
-    async fn run(&self, context: AgentContext) -> Vec<AgentEvent> {
-        self.runner.run(context).await
+    async fn run_streaming(&self, context: AgentContext, tx: mpsc::Sender<AgentEvent>) {
+        self.runner.run_streaming(context, tx).await
     }
+}
+
+pub async fn collect_events<G>(graph: &G, context: AgentContext) -> Vec<AgentEvent>
+where
+    G: AgentGraph + ?Sized,
+{
+    let (tx, mut rx) = mpsc::channel(32);
+
+    let producer = async {
+        graph.run_streaming(context, tx).await;
+    };
+    let consumer = async {
+        let mut events = Vec::new();
+        while let Some(evt) = rx.recv().await {
+            events.push(evt);
+        }
+        events
+    };
+
+    let (_, events) = tokio::join!(producer, consumer);
+    events
 }
 
 #[cfg(test)]
 mod tests {
     use crate::agent::context::AgentContext;
     use crate::agent::event::AgentEvent;
-    use crate::agent::graph::{AgentGraph, TraditionalGraph};
+    use crate::agent::graph::{TraditionalGraph, collect_events};
     use crate::agent::mock::MockStore;
     use crate::llm::mock::MockLlmClient;
     use serde_json::json;
@@ -74,13 +96,15 @@ mod tests {
         let client = Arc::new(MockLlmClient::default());
         let graph = TraditionalGraph::with_mock_store(client, MockStore::new("mock"));
 
-        let events = graph
-            .run(AgentContext {
+        let events = collect_events(
+            &graph,
+            AgentContext {
                 project_id: Some("project-1".to_string()),
                 mock_config: Some(all_nodes_mock_config()),
                 user_request: "build a todo app".to_string(),
-            })
-            .await;
+            },
+        )
+        .await;
 
         assert!(
             events

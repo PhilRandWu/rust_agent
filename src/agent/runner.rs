@@ -23,6 +23,7 @@ use crate::agent::flows::traditional::utils::{UtilsInput, UtilsNode};
 use crate::agent::mock::{MockNode, MockStore};
 use crate::llm::client::LlmClient;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 pub struct AgentRunner {
     main_client: Arc<dyn LlmClient>,
@@ -44,19 +45,17 @@ impl AgentRunner {
         }
     }
 
-    pub async fn run(&self, context: AgentContext) -> Vec<AgentEvent> {
-        let mut events = Vec::new();
-        if let Err(error) = self.run_traditional(context, &mut events).await {
-            events.push(AgentEvent::Error(error.to_string()));
+    pub async fn run_streaming(&self, context: AgentContext, tx: mpsc::Sender<AgentEvent>) {
+        if let Err(error) = self.run_traditional(context, &tx).await {
+            let _ = tx.send(AgentEvent::Error(error.to_string())).await;
         }
-        events.push(AgentEvent::Done);
-        events
+        let _ = tx.send(AgentEvent::Done).await;
     }
 
     async fn run_traditional(
         &self,
         context: AgentContext,
-        events: &mut Vec<AgentEvent>,
+        tx: &mpsc::Sender<AgentEvent>,
     ) -> anyhow::Result<()> {
         let mut state = TraditionalFlowState::new();
 
@@ -68,8 +67,7 @@ impl AgentRunner {
 
             analysis_node.run(analysis_input).await?
         };
-
-        events.push(AgentEvent::Analysis(analysis.clone()));
+        send(tx, AgentEvent::Analysis(analysis.clone())).await?;
         state.analysis = Some(analysis.clone());
 
         let intent = if self.should_mock(&context, MockNode::Intent) {
@@ -81,7 +79,7 @@ impl AgentRunner {
             intent_node.run(intent_input).await?
         };
 
-        events.push(AgentEvent::Intent(intent.clone()));
+        send(tx, AgentEvent::Intent(intent.clone())).await?;
         state.intent = Some(intent.clone());
 
         let capability = if self.should_mock(&context, MockNode::Capability) {
@@ -93,7 +91,7 @@ impl AgentRunner {
             intent_node.run(intent_input).await?
         };
 
-        events.push(AgentEvent::Capability(capability.clone()));
+        send(tx, AgentEvent::Capability(capability.clone())).await?;
         state.capability = Some(capability.clone());
 
         let ui = if self.should_mock(&context, MockNode::Ui) {
@@ -104,7 +102,8 @@ impl AgentRunner {
 
             ui_node.run(ui_input).await?
         };
-        events.push(AgentEvent::Ui(ui.clone()));
+
+        send(tx, AgentEvent::Ui(ui.clone())).await?;
         state.ui = Some(ui.clone());
 
         let component = if self.should_mock(&context, MockNode::Component) {
@@ -116,7 +115,8 @@ impl AgentRunner {
 
             component_node.run(component_input).await?
         };
-        events.push(AgentEvent::Component(component.clone()));
+
+        send(tx, AgentEvent::Component(component.clone())).await?;
         state.component = Some(component.clone());
 
         let structure = if self.should_mock(&context, MockNode::Structure) {
@@ -128,7 +128,8 @@ impl AgentRunner {
 
             structure_node.run(structure_input).await?
         };
-        events.push(AgentEvent::Structure(structure.clone()));
+
+        send(tx, AgentEvent::Structure(structure.clone())).await?;
         state.structure = Some(structure.clone());
 
         let dependency = if self.should_mock(&context, MockNode::Dependency) {
@@ -138,7 +139,8 @@ impl AgentRunner {
                 .run(DependencyInput::new(structure.clone()))
                 .await?
         };
-        events.push(AgentEvent::Dependency(dependency.clone()));
+
+        send(tx, AgentEvent::Dependency(dependency.clone())).await?;
         state.dependency = Some(dependency.clone());
 
         let types = if self.should_mock(&context, MockNode::Type) {
@@ -148,7 +150,8 @@ impl AgentRunner {
                 .run(TypeInput::new(component.clone(), structure.clone()))
                 .await?
         };
-        events.push(AgentEvent::Type(types.clone()));
+
+        send(tx, AgentEvent::Type(types.clone())).await?;
         state.types = Some(types.clone());
 
         let utils = if self.should_mock(&context, MockNode::Utils) {
@@ -158,7 +161,8 @@ impl AgentRunner {
                 .run(UtilsInput::new(structure.clone()))
                 .await?
         };
-        events.push(AgentEvent::Utils(utils.clone()));
+
+        send(tx, AgentEvent::Utils(utils.clone())).await?;
         state.utils = Some(utils.clone());
 
         let mock_data = if self.should_mock(&context, MockNode::MockData) {
@@ -168,7 +172,8 @@ impl AgentRunner {
                 .run(MockDataInput::new(types.clone(), structure.clone()))
                 .await?
         };
-        events.push(AgentEvent::MockData(mock_data.clone()));
+
+        send(tx, AgentEvent::MockData(mock_data.clone())).await?;
         state.mock_data = Some(mock_data.clone());
 
         let service = if self.should_mock(&context, MockNode::Service) {
@@ -183,7 +188,8 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::Service(service.clone()));
+
+        send(tx, AgentEvent::Service(service.clone())).await?;
         state.service = Some(service.clone());
 
         let hooks = if self.should_mock(&context, MockNode::Hooks) {
@@ -197,7 +203,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::Hooks(hooks.clone()));
+        send(tx, AgentEvent::Hooks(hooks.clone())).await?;
         state.hooks = Some(hooks.clone());
 
         let component_gen = if self.should_mock(&context, MockNode::ComponentGen) {
@@ -213,7 +219,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::ComponentGen(component_gen.clone()));
+        send(tx, AgentEvent::ComponentGen(component_gen.clone())).await?;
         state.component_gen = Some(component_gen.clone());
 
         let page_gen = if self.should_mock(&context, MockNode::PageGen) {
@@ -230,7 +236,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::PageGen(page_gen.clone()));
+        send(tx, AgentEvent::PageGen(page_gen.clone())).await?;
         state.page_gen = Some(page_gen.clone());
 
         let layout = if self.should_mock(&context, MockNode::Layout) {
@@ -244,7 +250,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::Layout(layout.clone()));
+        send(tx, AgentEvent::Layout(layout.clone())).await?;
         state.layout = Some(layout.clone());
 
         let style_gen = if self.should_mock(&context, MockNode::StyleGen) {
@@ -259,7 +265,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::StyleGen(style_gen.clone()));
+        send(tx, AgentEvent::StyleGen(style_gen.clone())).await?;
         state.style_gen = Some(style_gen.clone());
 
         let app_gen = if self.should_mock(&context, MockNode::AppGen) {
@@ -274,7 +280,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::AppGen(app_gen.clone()));
+        send(tx, AgentEvent::AppGen(app_gen.clone())).await?;
         state.app_gen = Some(app_gen.clone());
 
         let assemble = if self.should_mock(&context, MockNode::Assemble) {
@@ -296,7 +302,7 @@ impl AgentRunner {
                 ))
                 .await?
         };
-        events.push(AgentEvent::Assemble(assemble.clone()));
+        send(tx, AgentEvent::Assemble(assemble.clone())).await?;
         state.assemble = Some(assemble.clone());
 
         let post_process = if self.should_mock(&context, MockNode::PostProcess) {
@@ -306,11 +312,11 @@ impl AgentRunner {
                 .run(PostProcessInput::new(assemble))
                 .await?
         };
-        events.push(AgentEvent::PostProcess(post_process.clone()));
+        send(tx, AgentEvent::PostProcess(post_process.clone())).await?;
         state.post_process = Some(post_process);
 
         if let Some(files) = state.final_files() {
-            events.push(AgentEvent::Files(files));
+            send(tx, AgentEvent::Files(files)).await?;
         }
 
         Ok(())
@@ -319,6 +325,12 @@ impl AgentRunner {
     fn should_mock(&self, context: &AgentContext, node: MockNode) -> bool {
         MockStore::should_mock(context.mock_config.as_ref(), node)
     }
+}
+
+async fn send(tx: &mpsc::Sender<AgentEvent>, evt: AgentEvent) -> anyhow::Result<()> {
+    tx.send(evt)
+        .await
+        .map_err(|_| anyhow::anyhow!("agent event stream closed by consumer"))
 }
 
 #[cfg(test)]
@@ -330,6 +342,8 @@ mod tests {
     use crate::llm::mock::MockLlmClient;
     use serde_json::json;
     use std::sync::Arc;
+    use tokio::sync::mpsc;
+    use tokio::time::{Duration, timeout};
 
     fn all_nodes_mock_config() -> serde_json::Value {
         json!({
@@ -355,6 +369,24 @@ mod tests {
         })
     }
 
+    async fn collect(runner: &AgentRunner, context: AgentContext) -> Vec<AgentEvent> {
+        let (tx, mut rx) = mpsc::channel(32);
+
+        let producer = async {
+            runner.run_streaming(context, tx).await;
+        };
+        let consumer = async {
+            let mut events = Vec::new();
+            while let Some(evt) = rx.recv().await {
+                events.push(evt);
+            }
+            events
+        };
+
+        let (_, events) = tokio::join!(producer, consumer);
+        events
+    }
+
     #[tokio::test]
     async fn returns_analysis_error_and_done_when_intent_fails() {
         let client = Arc::new(MockLlmClient::new(
@@ -368,13 +400,15 @@ mod tests {
         ));
 
         let runner = AgentRunner::new(client);
-        let events = runner
-            .run(AgentContext {
+        let events = collect(
+            &runner,
+            AgentContext {
                 project_id: Some("project-1".to_string()),
                 mock_config: Some(json!({ "analysisNode": true })),
                 user_request: "build a todo app".to_string(),
-            })
-            .await;
+            },
+        )
+        .await;
 
         match events.as_slice() {
             [
@@ -395,13 +429,15 @@ mod tests {
         let client = Arc::new(MockLlmClient::new("not json"));
         let runner = AgentRunner::new(client);
 
-        let events = runner
-            .run(AgentContext {
+        let events = collect(
+            &runner,
+            AgentContext {
                 project_id: None,
                 mock_config: None,
                 user_request: "build a todo app".to_string(),
-            })
-            .await;
+            },
+        )
+        .await;
 
         match events.as_slice() {
             [AgentEvent::Error(message), AgentEvent::Done] => {
@@ -416,13 +452,15 @@ mod tests {
         let client = Arc::new(MockLlmClient::default());
         let runner = AgentRunner::with_mock_store(client, MockStore::new("mock"));
 
-        let events = runner
-            .run(AgentContext {
+        let events = collect(
+            &runner,
+            AgentContext {
                 project_id: Some("project-1".to_string()),
                 mock_config: Some(all_nodes_mock_config()),
                 user_request: "build a todo app".to_string(),
-            })
-            .await;
+            },
+        )
+        .await;
 
         assert!(
             events
@@ -455,5 +493,73 @@ mod tests {
             }
             other => panic!("unexpected trailing events: {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn streaming_events_arrive_incrementally_in_order() {
+        let client = Arc::new(MockLlmClient::default());
+        let runner = AgentRunner::with_mock_store(client, MockStore::new("mock"));
+
+        let (tx, mut rx) = mpsc::channel::<AgentEvent>(1);
+
+        let handle = tokio::spawn({
+            let runner = std::sync::Arc::new(runner);
+            let ctx = AgentContext {
+                project_id: Some("project-1".to_string()),
+                mock_config: Some(all_nodes_mock_config()),
+                user_request: "build a todo app".to_string(),
+            };
+            async move {
+                runner.run_streaming(ctx, tx).await;
+            }
+        });
+
+        let first = timeout(Duration::from_secs(5), rx.recv())
+            .await
+            .expect("first event should arrive quickly")
+            .expect("channel should not close before Analysis");
+        assert!(matches!(first, AgentEvent::Analysis(_)));
+
+        let mut remaining = vec![first];
+        while let Some(evt) = rx.recv().await {
+            remaining.push(evt);
+        }
+
+        let idx_analysis = remaining
+            .iter()
+            .position(|e| matches!(e, AgentEvent::Analysis(_)))
+            .unwrap();
+        let idx_intent = remaining
+            .iter()
+            .position(|e| matches!(e, AgentEvent::Intent(_)))
+            .unwrap();
+        let idx_files = remaining
+            .iter()
+            .position(|e| matches!(e, AgentEvent::Files(_)))
+            .unwrap();
+        assert!(idx_analysis < idx_intent);
+        assert!(idx_intent < idx_files);
+        assert!(matches!(remaining.last(), Some(AgentEvent::Done)));
+
+        handle.await.expect("producer task should finish");
+    }
+
+    #[tokio::test]
+    async fn streaming_stops_when_receiver_dropped() {
+        let client = Arc::new(MockLlmClient::default());
+        let runner = AgentRunner::with_mock_store(client, MockStore::new("mock"));
+
+        let (tx, rx) = mpsc::channel::<AgentEvent>(1);
+        drop(rx);
+
+        let ctx = AgentContext {
+            project_id: Some("project-1".to_string()),
+            mock_config: Some(all_nodes_mock_config()),
+            user_request: "build a todo app".to_string(),
+        };
+
+        timeout(Duration::from_secs(3), runner.run_streaming(ctx, tx))
+            .await
+            .expect("run_streaming should return promptly when receiver is dropped");
     }
 }
