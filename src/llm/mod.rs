@@ -1,4 +1,5 @@
 pub mod client;
+pub mod json_repair;
 pub mod message;
 pub mod mock;
 pub mod openai_compatible;

@@ -1,4 +1,5 @@
 use crate::llm::client::LlmClient;
+use crate::llm::json_repair::parse_with_repair;
 use crate::llm::message::LlmMessage;
 use serde::de::DeserializeOwned;
 
@@ -17,21 +18,15 @@ pub fn parse_structured_content<T>(content: &str) -> anyhow::Result<T>
 where
     T: DeserializeOwned,
 {
-    Ok(serde_json::from_str(normalize_json_content(content))?)
-}
-
-fn normalize_json_content(content: &str) -> &str {
-    let content = content.trim();
-
-    if let Some(stripped) = content.strip_prefix("```json") {
-        return stripped.trim().trim_end_matches("```").trim();
+    let outcome = parse_with_repair::<T>(content).map_err(|err| anyhow::anyhow!("{err}"))?;
+    if !outcome.stages_applied.is_empty() {
+        tracing::info!(
+            target: "llm::structured",
+            stages = ?outcome.stages_applied,
+            "structured llm response required repair"
+        );
     }
-
-    if let Some(stripped) = content.strip_prefix("```") {
-        return stripped.trim().trim_end_matches("```");
-    }
-
-    content
+    Ok(outcome.value)
 }
 
 #[cfg(test)]
@@ -63,7 +58,7 @@ mod tests {
         let error = parse_structured_content::<AnalysisOutput>("error json")
             .expect_err("expected json error");
 
-        assert!(error.to_string().contains("expected"));
+        assert!(error.to_string().contains("failed to parse"));
     }
 
     #[test]
