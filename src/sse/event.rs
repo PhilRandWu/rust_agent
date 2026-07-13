@@ -2,6 +2,7 @@ use crate::agent::event::AgentEvent;
 use crate::agent::flows::traditional::analysis::schema::AnalysisOutput;
 use crate::agent::flows::traditional::files::schema::FilesOutput;
 use crate::agent::flows::traditional::plan::schema::PlanOutput;
+use crate::sse::phase::{Phase, phase_for};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -10,6 +11,9 @@ use std::collections::BTreeMap;
 pub struct FrontendEvent {
     #[serde(rename = "type")]
     pub event_type: FrontendEventEnum,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase: Option<Phase>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
@@ -88,6 +92,7 @@ impl FrontendEvent {
     pub fn data(event_type: FrontendEventEnum, data: Value) -> Self {
         Self {
             event_type,
+            phase: phase_for(event_type),
             data: Some(data),
             message: None,
         }
@@ -96,6 +101,7 @@ impl FrontendEvent {
     pub fn done() -> Self {
         Self {
             event_type: FrontendEventEnum::Done,
+            phase: None,
             data: None,
             message: None,
         }
@@ -104,6 +110,7 @@ impl FrontendEvent {
     pub fn error(message: impl Into<String>) -> Self {
         Self {
             event_type: FrontendEventEnum::Error,
+            phase: None,
             data: None,
             message: Some(message.into()),
         }
@@ -375,5 +382,54 @@ mod tests {
         let data = event.to_sse_data().unwrap();
         assert!(data.contains(r#""type":"files""#));
         assert!(!data.contains(r#""totalFixes""#));
+    }
+
+    #[test]
+    fn analysis_event_includes_planning_phase() {
+        let event = FrontendEvent::from_agent_event(AgentEvent::Analysis(AnalysisOutput {
+            app_type: "todo".to_string(),
+            summary: "s".to_string(),
+            features: vec![],
+            pages: vec![],
+            components: vec![],
+        }));
+        let data = event.to_sse_data().unwrap();
+        assert!(data.contains(r#""phase":"planning""#));
+        assert!(data.contains(r#""type":"analysis""#));
+    }
+
+    #[test]
+    fn files_event_from_assemble_includes_assembly_phase() {
+        use crate::agent::flows::traditional::assemble::{AssembleOutput, AssembleStats};
+        use std::collections::BTreeMap;
+        let event = FrontendEvent::from_agent_event(AgentEvent::Assemble(AssembleOutput {
+            files: BTreeMap::new(),
+            stats: AssembleStats {
+                total_files: 0,
+                categories: BTreeMap::new(),
+            },
+        }));
+        let data = event.to_sse_data().unwrap();
+        assert!(data.contains(r#""type":"files""#));
+        assert!(data.contains(r#""phase":"assembly""#));
+    }
+
+    #[test]
+    fn done_and_error_events_omit_phase() {
+        let done = FrontendEvent::from_agent_event(AgentEvent::Done)
+            .to_sse_data()
+            .unwrap();
+        assert!(
+            !done.contains(r#""phase""#),
+            "done should not have phase, got: {done}"
+        );
+
+        let error = FrontendEvent::from_agent_event(AgentEvent::Error("boom".into()))
+            .to_sse_data()
+            .unwrap();
+        assert!(
+            !error.contains(r#""phase""#),
+            "error should not have phase, got: {error}"
+        );
     }
 }
