@@ -6,6 +6,7 @@ use serde::de::DeserializeOwned;
 
 mod errors;
 mod stages;
+#[cfg(test)]
 mod tests;
 
 #[derive(Debug)]
