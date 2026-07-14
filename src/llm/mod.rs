@@ -5,5 +5,6 @@ pub mod mock;
 pub mod openai_compatible;
 pub mod provider;
 pub mod registry;
+pub mod semaphore;
 pub mod service;
 pub mod structured;

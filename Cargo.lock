@@ -1492,6 +1492,7 @@ dependencies = [
  "dotenvy",
  "futures",
  "http-body-util",
+ "num_cpus",
  "serde",
  "serde_json",
  "swc_core",
