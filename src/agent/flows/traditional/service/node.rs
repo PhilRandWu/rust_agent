@@ -13,6 +13,7 @@ impl ServiceNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.service")]
     pub async fn run(&self, input: ServiceInput) -> anyhow::Result<ServiceOutput> {
         if input.mock_data.files.is_empty() {
             return Ok(ServiceOutput { files: Vec::new() });

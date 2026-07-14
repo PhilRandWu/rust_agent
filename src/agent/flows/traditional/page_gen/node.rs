@@ -14,6 +14,7 @@ impl PageGenNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.page_gen")]
     pub async fn run(&self, input: PageGenInput) -> anyhow::Result<PageGenOutput> {
         let has_page_files = input.structure.files.iter().any(|file| {
             file.generated_by == GeneratedBy::Page

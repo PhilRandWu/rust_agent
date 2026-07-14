@@ -13,6 +13,7 @@ impl ComponentNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.component")]
     pub async fn run(&self, input: ComponentInput) -> anyhow::Result<ComponentOutput> {
         let messages = component_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

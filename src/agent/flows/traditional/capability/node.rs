@@ -13,6 +13,7 @@ impl CapabilityNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.capability")]
     pub async fn run(&self, input: CapabilityInput) -> anyhow::Result<CapabilityOutput> {
         let messages = capability_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

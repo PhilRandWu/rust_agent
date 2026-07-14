@@ -13,6 +13,7 @@ impl MockDataNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.mock_data")]
     pub async fn run(&self, input: MockDataInput) -> anyhow::Result<MockDataOutput> {
         if input.types.files.is_empty() {
             return Ok(MockDataOutput { files: Vec::new() });

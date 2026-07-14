@@ -13,6 +13,7 @@ impl UiNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.ui")]
     pub async fn run(&self, input: UiInput) -> anyhow::Result<UiOutput> {
         let messages = ui_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

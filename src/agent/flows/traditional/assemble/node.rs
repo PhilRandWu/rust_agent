@@ -9,6 +9,7 @@ impl AssembleNode {
         Self
     }
 
+    #[tracing::instrument(skip_all, name = "node.assemble")]
     pub async fn run(&self, input: AssembleInput) -> anyhow::Result<AssembleOutput> {
         let mut files = BTreeMap::new();
         let mut categories = BTreeMap::new();

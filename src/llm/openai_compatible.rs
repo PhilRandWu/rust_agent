@@ -44,6 +44,36 @@ impl OpenAiCompatibleClient {
 #[async_trait::async_trait]
 impl LlmClient for OpenAiCompatibleClient {
     async fn chat(&self, messages: &[LlmMessage]) -> anyhow::Result<LlmResponse> {
+        let start = std::time::Instant::now();
+        let msg_count = messages.len();
+        let result = self.chat_inner(messages).await;
+        let elapsed_ms = start.elapsed().as_millis();
+        match &result {
+            Ok(resp) => tracing::info!(
+                target: "llm.call",
+                provider = ?self.provider,
+                model = %self.config.model,
+                msg_count,
+                elapsed_ms,
+                content_len = resp.content.len(),
+                "llm call ok"
+            ),
+            Err(err) => tracing::warn!(
+                target: "llm.call",
+                provider = ?self.provider,
+                model = %self.config.model,
+                msg_count,
+                elapsed_ms,
+                error = %err,
+                "llm call failed"
+            ),
+        }
+        result
+    }
+}
+
+impl OpenAiCompatibleClient {
+    async fn chat_inner(&self, messages: &[LlmMessage]) -> anyhow::Result<LlmResponse> {
         let openai_messages = messages
             .iter()
             .map(to_openai_message)

@@ -13,6 +13,7 @@ impl StyleGenNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.style_gen")]
     pub async fn run(&self, input: StyleGenInput) -> anyhow::Result<StyleGenOutput> {
         let messages = style_gen_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

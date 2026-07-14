@@ -12,6 +12,7 @@ impl FilesNode {
         Self
     }
 
+    #[tracing::instrument(skip_all, name = "node.files")]
     pub async fn run(&self, input: FilesInput) -> anyhow::Result<FilesOutput> {
         Ok(generate_files(input.plan))
     }

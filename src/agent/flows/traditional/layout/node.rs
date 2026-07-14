@@ -15,6 +15,7 @@ impl LayoutNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.layout")]
     pub async fn run(&self, input: LayoutInput) -> anyhow::Result<LayoutOutput> {
         if input.ui.layout_pattern == LayoutPattern::SinglePage || input.pages.files.len() <= 1 {
             return Ok(LayoutOutput {

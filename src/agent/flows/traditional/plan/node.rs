@@ -13,6 +13,7 @@ impl PlanNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.plan")]
     pub async fn run(&self, input: PlanInput) -> anyhow::Result<PlanOutput> {
         let messages = plan_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

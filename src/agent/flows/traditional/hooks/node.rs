@@ -13,6 +13,7 @@ impl HooksNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.hooks")]
     pub async fn run(&self, input: HooksInput) -> anyhow::Result<HooksOutput> {
         if input.service.files.is_empty() {
             return Ok(HooksOutput { files: Vec::new() });

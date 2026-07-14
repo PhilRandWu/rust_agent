@@ -13,6 +13,7 @@ impl AppGenNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.app_gen")]
     pub async fn run(&self, input: AppGenInput) -> anyhow::Result<AppGenOutput> {
         let messages = app_gen_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

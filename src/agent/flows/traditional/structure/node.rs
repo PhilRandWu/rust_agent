@@ -13,6 +13,7 @@ impl StructureNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.structure")]
     pub async fn run(&self, input: StructureInput) -> anyhow::Result<StructureOutput> {
         let messages = structure_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

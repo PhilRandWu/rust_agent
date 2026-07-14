@@ -13,6 +13,7 @@ impl IntentNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.intent")]
     pub async fn run(&self, input: IntentInput) -> anyhow::Result<IntentOutput> {
         let messages = intent_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await

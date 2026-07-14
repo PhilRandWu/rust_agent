@@ -9,6 +9,7 @@ impl UtilsNode {
         Self
     }
 
+    #[tracing::instrument(skip_all, name = "node.utils")]
     pub async fn run(&self, input: UtilsInput) -> anyhow::Result<UtilsOutput> {
         let should_generate =
             input.structure.files.iter().any(|file| {

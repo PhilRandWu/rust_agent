@@ -9,6 +9,7 @@ impl DependencyNode {
         Self
     }
 
+    #[tracing::instrument(skip_all, name = "node.dependency")]
     pub async fn run(&self, _input: DependencyInput) -> anyhow::Result<DependencyOutput> {
         Ok(DependencyOutput::new(
             react_ts_template_package_json(),

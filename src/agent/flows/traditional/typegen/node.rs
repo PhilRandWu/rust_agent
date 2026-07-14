@@ -13,6 +13,7 @@ impl TypeNode {
         Self { client }
     }
 
+    #[tracing::instrument(skip_all, name = "node.typegen")]
     pub async fn run(&self, input: TypeInput) -> anyhow::Result<TypeOutput> {
         let messages = type_messages(&input);
         structured_chat(self.client.as_ref(), &messages).await
