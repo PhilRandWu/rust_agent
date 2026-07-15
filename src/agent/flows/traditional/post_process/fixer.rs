@@ -13,7 +13,7 @@ pub fn fix_files(files: BTreeMap<String, String>) -> (BTreeMap<String, String>, 
     (fixed_files, total_fixes)
 }
 
-fn fix_content(content: &str) -> (String, usize) {
+pub fn fix_content(content: &str) -> (String, usize) {
     let mut fixes = 0;
     let mut fixed = content.to_string();
 

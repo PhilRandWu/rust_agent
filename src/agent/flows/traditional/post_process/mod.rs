@@ -1,3 +1,4 @@
+pub mod ast_fixer;
 pub mod fixer;
 pub mod node;
 pub mod schema;

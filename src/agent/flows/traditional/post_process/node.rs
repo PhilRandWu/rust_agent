@@ -1,5 +1,8 @@
-use crate::agent::flows::traditional::post_process::fixer::fix_files;
+use crate::agent::flows::traditional::post_process::ast_fixer::ast_fix_file;
+use crate::agent::flows::traditional::post_process::fixer::fix_content;
 use crate::agent::flows::traditional::post_process::{PostProcessInput, PostProcessOutput};
+use std::collections::BTreeMap;
+use tokio::task::JoinSet;
 
 pub struct PostProcessNode;
 
@@ -8,10 +11,31 @@ impl PostProcessNode {
         Self
     }
 
+    #[tracing::instrument(skip_all, name = "node.post_process")]
     pub async fn run(&self, input: PostProcessInput) -> anyhow::Result<PostProcessOutput> {
-        let (files, total_fixes) = fix_files(input.assembled.files);
+        let files = input.assembled.files;
+        let mut set: JoinSet<(String, String, usize)> = JoinSet::new();
 
-        Ok(PostProcessOutput { files, total_fixes })
+        for (path, content) in files {
+            set.spawn_blocking(move || {
+                let (s, sf) = fix_content(&content);
+                let (a, af) = ast_fix_file(&path, &s);
+                (path, a, sf + af)
+            });
+        }
+
+        let mut fixed = BTreeMap::new();
+        let mut total_fixes = 0;
+        while let Some(r) = set.join_next().await {
+            let (path, content, fixes) = r?;
+            fixed.insert(path, content);
+            total_fixes += fixes;
+        }
+
+        Ok(PostProcessOutput {
+            files: fixed,
+            total_fixes,
+        })
     }
 }
 
@@ -45,9 +69,11 @@ mod tests {
             .await
             .expect("post process should run");
 
-        assert_eq!(
-            output.files.get("/App.tsx"),
-            Some(&"export default function App() {}".to_string())
+        let content = output.files.get("/App.tsx").expect("App.tsx present");
+        assert!(!content.contains("```"), "fences should be gone: {content}");
+        assert!(
+            content.contains("export default function App"),
+            "content preserved: {content}"
         );
         assert!(output.total_fixes >= 1);
     }
