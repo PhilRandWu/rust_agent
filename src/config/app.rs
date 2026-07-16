@@ -1,10 +1,13 @@
 use crate::config::model::ModelConfig;
+use crate::session::SessionConfig;
 use std::{collections::HashMap, env, time::Duration};
 
 pub struct AppConfig {
     pub server: ServerConfig,
     pub cors: CorsConfig,
     pub model: ModelConfig,
+    pub llm_parallelism: usize,
+    pub session: SessionConfig,
 }
 
 pub struct ServerConfig {
@@ -66,6 +69,14 @@ impl AppConfig {
 
         let model = ModelConfig::from_values(values)?;
 
+        let llm_parallelism = values
+            .get("LLM_PARALLELISM")
+            .and_then(|s| s.parse::<usize>().ok())
+            .filter(|&n| n >= 1)
+            .unwrap_or_else(crate::llm::semaphore::LlmGate::default_capacity);
+
+        let session = SessionConfig::from_values(values);
+
         Ok(Self {
             server: ServerConfig { host, port },
             cors: CorsConfig {
@@ -76,6 +87,8 @@ impl AppConfig {
                 max_age,
             },
             model,
+            llm_parallelism,
+            session,
         })
     }
 }
@@ -130,5 +143,26 @@ mod tests {
             config.cors.allowed_origins,
             vec!["http://localhost:3000", "http://localhost:5173"]
         );
+    }
+
+    #[test]
+    fn reads_llm_parallelism_from_env() {
+        let values = HashMap::from([("LLM_PARALLELISM".to_string(), "8".to_string())]);
+        let cfg = AppConfig::from_values(&values).unwrap();
+        assert_eq!(cfg.llm_parallelism, 8);
+    }
+
+    #[test]
+    fn falls_back_to_default_parallelism_when_invalid() {
+        let values = HashMap::from([("LLM_PARALLELISM".to_string(), "abc".to_string())]);
+        let cfg = AppConfig::from_values(&values).unwrap();
+        assert!(cfg.llm_parallelism >= 1 && cfg.llm_parallelism <= 4);
+    }
+
+    #[test]
+    fn rejects_zero_parallelism() {
+        let values = HashMap::from([("LLM_PARALLELISM".to_string(), "0".to_string())]);
+        let cfg = AppConfig::from_values(&values).unwrap();
+        assert!(cfg.llm_parallelism >= 1, "0 must not be accepted");
     }
 }

@@ -6,4 +6,5 @@ pub mod routes;
 pub mod agent;
 pub mod ast;
 pub mod llm;
+pub mod session;
 pub mod sse;

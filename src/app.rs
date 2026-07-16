@@ -4,25 +4,34 @@ use tower_http::cors::CorsLayer;
 
 use crate::config::app::AppConfig;
 use crate::llm::registry::ModelRegistry;
+use crate::llm::semaphore::LlmGate;
 use crate::llm::service::LlmService;
-use crate::routes::{chat, health};
+use crate::routes::{chat, health, session};
+use crate::session::{MemorySessionStore, SessionStore};
 
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<AppConfig>,
     pub model_registry: Arc<ModelRegistry>,
     pub llm_service: Arc<LlmService>,
+    pub llm_gate: LlmGate,
+    pub session_store: Arc<dyn SessionStore>,
 }
 
 impl AppState {
     pub fn new(config: AppConfig) -> anyhow::Result<Self> {
         let model_registry = ModelRegistry::new(config.model.clone());
         let llm_service = LlmService::from_registry(&model_registry)?;
+        let llm_gate = LlmGate::new(config.llm_parallelism);
+        let session_store: Arc<dyn SessionStore> =
+            Arc::new(MemorySessionStore::new(config.session));
 
         Ok(Self {
             config: Arc::new(config),
             model_registry: Arc::new(model_registry),
             llm_service: Arc::new(llm_service),
+            llm_gate,
+            session_store,
         })
     }
 }
@@ -70,6 +79,7 @@ pub fn build_router(state: AppState) -> anyhow::Result<Router> {
     Ok(Router::new()
         .merge(health::router())
         .merge(chat::router())
+        .merge(session::router())
         .with_state(state)
         .layer(cors_layer))
 }
@@ -98,6 +108,8 @@ mod tests {
                 max_age: Duration::from_secs(3600),
             },
             model: ModelConfig::from_values(&HashMap::new()).expect("model config should load"),
+            llm_parallelism: 4,
+            session: crate::session::SessionConfig::default(),
         };
 
         let result = build_router(AppState::new(config).expect("state should build"));
