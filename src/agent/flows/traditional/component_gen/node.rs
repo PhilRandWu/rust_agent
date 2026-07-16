@@ -1,33 +1,71 @@
-use crate::agent::flows::traditional::component_gen::prompt::component_gen_messages;
-use crate::agent::flows::traditional::component_gen::{ComponentGenInput, ComponentGenOutput};
+use crate::agent::flows::traditional::component_gen::parallel::ComponentGenStream;
+use crate::agent::flows::traditional::component_gen::{
+    ComponentGenInput, ComponentGenOutput, ComponentGenPartial,
+};
 use crate::agent::flows::traditional::structure::GeneratedBy;
 use crate::llm::client::LlmClient;
-use crate::llm::structured::structured_chat;
+use crate::llm::semaphore::LlmGate;
 use std::sync::Arc;
+use tokio::sync::mpsc;
 
 pub struct ComponentGenNode {
     client: Arc<dyn LlmClient>,
+    gate: LlmGate,
 }
 
 impl ComponentGenNode {
     pub fn new(client: Arc<dyn LlmClient>) -> Self {
-        Self { client }
-    }
-
-    pub async fn run(&self, input: ComponentGenInput) -> anyhow::Result<ComponentGenOutput> {
-        let has_component_files = input.structure.files.iter().any(|file| {
-            file.generated_by == GeneratedBy::Component
-                && file.path.starts_with("/components/")
-                && file.path.ends_with(".tsx")
-        });
-
-        if !has_component_files {
-            return Ok(ComponentGenOutput { files: Vec::new() });
+        Self {
+            client,
+            gate: LlmGate::new(1),
         }
-
-        let messages = component_gen_messages(&input);
-        structured_chat(self.client.as_ref(), &messages).await
     }
+
+    pub fn with_gate(client: Arc<dyn LlmClient>, gate: LlmGate) -> Self {
+        Self { client, gate }
+    }
+
+    pub fn stream(&self, input: ComponentGenInput) -> Option<ComponentGenStream> {
+        if !hash_component_files(&input) {
+            return None;
+        }
+        Some(ComponentGenStream::spawn(
+            Arc::clone(&self.client),
+            self.gate.clone(),
+            input,
+        ))
+    }
+
+    #[tracing::instrument(skip_all, name = "node.component_gen")]
+    pub async fn run(&self, input: ComponentGenInput) -> anyhow::Result<ComponentGenOutput> {
+        self.run_with_partial(input, None).await
+    }
+
+    pub async fn run_with_partial(
+        &self,
+        input: ComponentGenInput,
+        partial_tx: Option<mpsc::Sender<ComponentGenPartial>>,
+    ) -> anyhow::Result<ComponentGenOutput> {
+        let Some(mut stream) = self.stream(input) else {
+            return Ok(ComponentGenOutput { files: Vec::new() });
+        };
+        while let Some(evt) = stream.next_partial().await {
+            if let Some(tx) = &partial_tx {
+                let _ = tx.send(evt).await;
+            }
+        }
+        Ok(ComponentGenOutput {
+            files: stream.finish()?,
+        })
+    }
+}
+
+fn hash_component_files(input: &ComponentGenInput) -> bool {
+    input.structure.files.iter().any(|file| {
+        file.generated_by == GeneratedBy::Component
+            && file.path.starts_with("/components/")
+            && file.path.ends_with(".tsx")
+    })
 }
 
 #[cfg(test)]
@@ -48,13 +86,9 @@ mod tests {
     async fn parses_component_gen_output_from_llm_json() {
         let client = Arc::new(MockLlmClient::new(
             r#"{
-              "files": [
-                {
-                  "path": "/components/TodoListPanel.tsx",
-                  "content": "import React from 'react';\nimport type { Todo } from '../types/todo';\n\ninterface TodoListPanelProps {\n  todos?: Todo[];\n}\n\nexport default function TodoListPanel({ todos = [] }: TodoListPanelProps) {\n  if (!todos.length) {\n    return <div className=\"rounded-xl border border-dashed border-slate-300 p-8 text-center text-slate-500\">No todos yet</div>;\n  }\n\n  return <div className=\"space-y-2\">{todos.map(todo => <div key={todo.id}>{todo.title}</div>)}</div>;\n}\n",
-                  "description": "Todo list component"
-                }
-              ]
+              "path": "/components/TodoListPanel.tsx",
+              "content": "import React from 'react';\nimport type { Todo } from '../types/todo';\n\nexport default function TodoListPanel() { return <div />; }\n",
+              "description": "Todo list component"
             }"#,
         ));
 

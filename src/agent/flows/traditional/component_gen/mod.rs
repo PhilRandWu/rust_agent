@@ -1,6 +1,9 @@
 pub mod node;
+pub mod parallel;
 pub mod prompt;
 pub mod schema;
 
 pub use node::ComponentGenNode;
-pub use schema::{ComponentCodeFile, ComponentGenInput, ComponentGenOutput};
+pub use schema::{
+    ComponentCodeFile, ComponentGenInput, ComponentGenOutput, ComponentGenPartial, PartialProgress,
+};

@@ -26,6 +26,18 @@ pub struct ComponentCodeFile {
     pub description: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ComponentGenPartial {
+    pub file: ComponentCodeFile,
+    pub progress: PartialProgress,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PartialProgress {
+    pub completed: usize,
+    pub total: usize,
+}
+
 impl ComponentGenInput {
     pub fn new(
         structure: StructureOutput,

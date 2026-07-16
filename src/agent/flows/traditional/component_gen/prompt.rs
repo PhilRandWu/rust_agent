@@ -1,5 +1,41 @@
+use crate::agent::flows::traditional::component::ComponentSpec;
 use crate::agent::flows::traditional::component_gen::ComponentGenInput;
 use crate::llm::message::LlmMessage;
+
+pub fn single_component_messages(
+    input: &ComponentGenInput,
+    spec: &ComponentSpec,
+) -> Vec<LlmMessage> {
+    let spec_json = serde_json::to_string(spec).unwrap_or_else(|_| "{}".to_string());
+    let types_json = serde_json::to_string(&input.types).unwrap_or_else(|_| "{}".to_string());
+    let hooks_json = serde_json::to_string(&input.hooks).unwrap_or_else(|_| "{}".to_string());
+    let service_json = serde_json::to_string(&input.service).unwrap_or_else(|_| "{}".to_string());
+
+    vec![
+        LlmMessage::system(
+            r#"You are a senior React + TypeScript component engineer.
+
+Generate a single React component file from the given specification.
+
+Return only valid JSON matching this shape (no markdown fences):
+{
+  "path": "/components/ComponentName.tsx",
+  "content": "...tsx source...",
+  "description": "one-line description"
+}
+
+Rules:
+1. Export default a React component.
+2. Use TypeScript + TSX + Tailwind classes.
+3. Import types from /types when needed (relative path).
+4. Prefer hooks from /hooks.
+5. Only generate ONE file for the specified component."#,
+        ),
+        LlmMessage::user(format!(
+            "Component spec:\n{spec_json}\n\nAvailable types:\n{types_json}\n\nAvailable hooks:\n{hooks_json}\n\nAvailable services:\n{service_json}"
+        )),
+    ]
+}
 
 pub fn component_gen_messages(input: &ComponentGenInput) -> Vec<LlmMessage> {
     let structure_json =
