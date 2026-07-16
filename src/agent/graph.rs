@@ -3,6 +3,8 @@ use crate::agent::event::AgentEvent;
 use crate::agent::mock::MockStore;
 use crate::agent::runner::AgentRunner;
 use crate::llm::client::LlmClient;
+use crate::llm::semaphore::LlmGate;
+use crate::session::SessionStore;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 
@@ -25,6 +27,32 @@ impl TraditionalGraph {
     pub fn with_mock_store(main_client: Arc<dyn LlmClient>, mock_store: MockStore) -> Self {
         Self {
             runner: AgentRunner::with_mock_store(main_client, mock_store),
+        }
+    }
+
+    pub fn with_gate(main_client: Arc<dyn LlmClient>, gate: LlmGate) -> Self {
+        Self {
+            runner: AgentRunner::with_gate(main_client, gate),
+        }
+    }
+
+    pub fn with_mock_store_and_gate(
+        main_client: Arc<dyn LlmClient>,
+        mock_store: MockStore,
+        gate: LlmGate,
+    ) -> Self {
+        Self {
+            runner: AgentRunner::with_mock_store_and_gate(main_client, mock_store, gate),
+        }
+    }
+
+    pub fn with_gate_and_session(
+        main_client: Arc<dyn LlmClient>,
+        gate: LlmGate,
+        session_store: Arc<dyn SessionStore>,
+    ) -> Self {
+        Self {
+            runner: AgentRunner::with_gate(main_client, gate).with_session_store(session_store),
         }
     }
 }

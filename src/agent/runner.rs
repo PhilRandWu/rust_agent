@@ -6,7 +6,9 @@ use crate::agent::flows::traditional::app_gen::{AppGenInput, AppGenNode};
 use crate::agent::flows::traditional::assemble::{AssembleInput, AssembleNode};
 use crate::agent::flows::traditional::capability::{CapabilityInput, CapabilityNode};
 use crate::agent::flows::traditional::component::{ComponentInput, ComponentNode};
-use crate::agent::flows::traditional::component_gen::{ComponentGenInput, ComponentGenNode};
+use crate::agent::flows::traditional::component_gen::{
+    ComponentGenInput, ComponentGenNode, ComponentGenOutput,
+};
 use crate::agent::flows::traditional::dependency::{DependencyInput, DependencyNode};
 use crate::agent::flows::traditional::hooks::{HooksInput, HooksNode};
 use crate::agent::flows::traditional::intent::{IntentInput, IntentNode};
@@ -22,12 +24,17 @@ use crate::agent::flows::traditional::ui::{UiInput, UiNode};
 use crate::agent::flows::traditional::utils::{UtilsInput, UtilsNode};
 use crate::agent::mock::{MockNode, MockStore};
 use crate::llm::client::LlmClient;
+use crate::llm::semaphore::LlmGate;
+use crate::session::{Operation, SessionStore, VersionMeta, VersionSnapshot, truncate_prompt};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::mpsc;
 
 pub struct AgentRunner {
     main_client: Arc<dyn LlmClient>,
     mock_store: MockStore,
+    gate: LlmGate,
+    session_store: Option<Arc<dyn SessionStore>>,
 }
 
 impl AgentRunner {
@@ -35,19 +42,61 @@ impl AgentRunner {
         Self {
             main_client,
             mock_store: MockStore::default(),
+            gate: LlmGate::new(1),
+            session_store: None,
         }
     }
 
     pub fn with_mock_store(main_client: Arc<dyn LlmClient>, mock_store: MockStore) -> Self {
+        Self::with_mock_store_and_gate(main_client, mock_store, LlmGate::new(1))
+    }
+
+    pub fn with_gate(main_client: Arc<dyn LlmClient>, gate: LlmGate) -> Self {
         Self {
             main_client,
-            mock_store,
+            mock_store: MockStore::default(),
+            gate,
+            session_store: None,
         }
     }
 
+    pub fn with_mock_store_and_gate(
+        main_client: Arc<dyn LlmClient>,
+        mock_store: MockStore,
+        gate: LlmGate,
+    ) -> Self {
+        Self {
+            main_client,
+            mock_store,
+            gate,
+            session_store: None,
+        }
+    }
+
+    pub fn with_session_store(mut self, store: Arc<dyn SessionStore>) -> Self {
+        self.session_store = Some(store);
+        self
+    }
+
     pub async fn run_streaming(&self, context: AgentContext, tx: mpsc::Sender<AgentEvent>) {
-        if let Err(error) = self.run_traditional(context, &tx).await {
+        use tracing::Instrument;
+        let span = tracing::info_span!(
+            "traditional_pipeline",
+            project_id = context.project_id.as_deref().unwrap_or("-"),
+            user_request_len = context.user_request.len(),
+            mock = context.mock_config.is_some(),
+        );
+        let started = std::time::Instant::now();
+        let result = self
+            .run_traditional(context, &tx)
+            .instrument(span.clone())
+            .await;
+        let elapsed_ms = started.elapsed().as_millis();
+        if let Err(error) = result {
+            tracing::warn!(target: "pipeline", parent: &span, elapsed_ms, error = %error, "pipeline failed");
             let _ = tx.send(AgentEvent::Error(error.to_string())).await;
+        } else {
+            tracing::info!(target: "pipeline", parent: &span, elapsed_ms, "pipeline ok");
         }
         let _ = tx.send(AgentEvent::Done).await;
     }
@@ -209,15 +258,26 @@ impl AgentRunner {
         let component_gen = if self.should_mock(&context, MockNode::ComponentGen) {
             self.mock_store.load(MockNode::ComponentGen).await?
         } else {
-            ComponentGenNode::new(Arc::clone(&self.main_client))
-                .run(ComponentGenInput::new(
-                    structure.clone(),
-                    component.clone(),
-                    types.clone(),
-                    service.clone(),
-                    hooks.clone(),
-                ))
-                .await?
+            let node =
+                ComponentGenNode::with_gate(Arc::clone(&self.main_client), self.gate.clone());
+            let input = ComponentGenInput::new(
+                structure.clone(),
+                component.clone(),
+                types.clone(),
+                service.clone(),
+                hooks.clone(),
+            );
+            match node.stream(input) {
+                None => ComponentGenOutput { files: Vec::new() },
+                Some(mut stream) => {
+                    while let Some(evt) = stream.next_partial().await {
+                        send(tx, AgentEvent::ComponentGenPartial(evt)).await?;
+                    }
+                    ComponentGenOutput {
+                        files: stream.finish()?,
+                    }
+                }
+            }
         };
         send(tx, AgentEvent::ComponentGen(component_gen.clone())).await?;
         state.component_gen = Some(component_gen.clone());
@@ -305,8 +365,63 @@ impl AgentRunner {
             .run(PostProcessInput::new(assemble))
             .await?;
         send(tx, AgentEvent::PostProcess(post_process.clone())).await?;
-        state.post_process = Some(post_process);
+        state.post_process = Some(post_process.clone());
 
+        self.maybe_commit_session(&context, &post_process.files, tx)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn maybe_commit_session(
+        &self,
+        context: &AgentContext,
+        files: &std::collections::BTreeMap<String, String>,
+        tx: &mpsc::Sender<AgentEvent>,
+    ) -> anyhow::Result<()> {
+        let Some(store) = self.session_store.as_ref() else {
+            return Ok(());
+        };
+        let Some(project_id) = context.project_id.as_deref() else {
+            return Ok(());
+        };
+
+        let prev = store.latest_version(project_id).await;
+        let operation = if prev == 0 {
+            Operation::Create
+        } else {
+            Operation::Edit
+        };
+        let timestamp_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+
+        let snapshot = VersionSnapshot {
+            version: 0,
+            timestamp_ms,
+            operation,
+            prompt: truncate_prompt(&context.user_request),
+            file_count: files.len(),
+            files: files.clone(),
+        };
+        let assigned = store.append_version(project_id, snapshot).await;
+        let meta = VersionMeta {
+            version: assigned,
+            timestamp_ms,
+            operation,
+            prompt: truncate_prompt(&context.user_request),
+            file_count: files.len(),
+        };
+        tracing::info!(
+            target: "session.commit",
+            project_id,
+            version = assigned,
+            operation = ?operation,
+            file_count = files.len(),
+            "session committed"
+        );
+        send(tx, AgentEvent::SessionCommit(meta)).await?;
         Ok(())
     }
 
@@ -567,5 +682,82 @@ mod tests {
         timeout(Duration::from_secs(3), runner.run_streaming(ctx, tx))
             .await
             .expect("run_streaming should return promptly when receiver is dropped");
+    }
+
+    fn mock_config_without_component_gen() -> serde_json::Value {
+        json!({
+            "analysisNode": true,
+            "intentNode": true,
+            "capabilityNode": true,
+            "uiNode": true,
+            "componentNode": true,
+            "structureNode": true,
+            "dependencyNode": true,
+            "typeNode": true,
+            "utilsNode": true,
+            "mockDataNode": true,
+            "serviceNode": true,
+            "hooksNode": true,
+            "componentGenNode": false,
+            "pageGenNode": true,
+            "layoutNode": true,
+            "styleGenNode": true,
+            "appGenNode": true
+        })
+    }
+
+    #[tokio::test]
+    async fn streaming_emits_component_gen_partial_events_before_final() {
+        let client = Arc::new(MockLlmClient::new(
+            r#"{"path":"/components/Fake.tsx","content":"export default () => null;"}"#,
+        ));
+        let runner = AgentRunner::with_mock_store(client, MockStore::new("mock"));
+
+        let events = collect(
+            &runner,
+            AgentContext {
+                project_id: Some("project-1".to_string()),
+                mock_config: Some(mock_config_without_component_gen()),
+                user_request: "build a todo app".to_string(),
+            },
+        )
+        .await;
+
+        let partial_count = events
+            .iter()
+            .filter(|e| matches!(e, AgentEvent::ComponentGenPartial(_)))
+            .count();
+        assert!(
+            partial_count >= 1,
+            "expected at least one ComponentGenPartial event, got {partial_count} in {events:?}"
+        );
+
+        let idx_first_partial = events
+            .iter()
+            .position(|e| matches!(e, AgentEvent::ComponentGenPartial(_)))
+            .expect("partial should exist");
+        let idx_final = events
+            .iter()
+            .position(|e| matches!(e, AgentEvent::ComponentGen(_)))
+            .expect("final componentGen should exist");
+        assert!(
+            idx_first_partial < idx_final,
+            "partial events must precede final ComponentGen"
+        );
+
+        let progresses: Vec<_> = events
+            .iter()
+            .filter_map(|e| {
+                if let AgentEvent::ComponentGenPartial(p) = e {
+                    Some(p.progress)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let total = progresses[0].total;
+        assert!(progresses.iter().all(|p| p.total == total));
+        let max_completed = progresses.iter().map(|p| p.completed).max().unwrap();
+        assert_eq!(max_completed, total);
     }
 }

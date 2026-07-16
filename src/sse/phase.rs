@@ -33,8 +33,8 @@ pub fn phase_for(event_type: FrontendEventEnum) -> Option<Phase> {
         Analysis | Intent | Capability | Ui | Component | Structure | Dependency => Planning,
         Type | Utils | MockData => Foundation,
         Service | Hooks => Logic,
-        ComponentGen | PageGen | Layout | StyleGen => View,
-        AppGen | Files => Assembly,
+        ComponentGen | PageGen | Layout | StyleGen | ComponentGenPartial => View,
+        AppGen | Files | Session => Assembly,
         Plan | Done | Error => return None,
     };
     Some(Phase::Traditional(phase))
@@ -63,10 +63,12 @@ mod tests {
             (Hooks, Some(Logic)),
             (ComponentGen, Some(View)),
             (PageGen, Some(View)),
+            (ComponentGenPartial, Some(View)),
             (Layout, Some(View)),
             (StyleGen, Some(View)),
             (AppGen, Some(Assembly)),
             (Files, Some(Assembly)),
+            (Session, Some(Assembly)),
             (Plan, None),
             (Done, None),
             (Error, None),
@@ -100,7 +102,6 @@ mod tests {
     #[test]
     fn phase_top_level_serializes_untagged() {
         let phase = Phase::Traditional(TraditionalPhase::View);
-        // untagged 应直接输出 "view" 而不是 { "Traditional": "view" }
         let s = serde_json::to_string(&phase).unwrap();
         assert_eq!(s, "\"view\"");
     }

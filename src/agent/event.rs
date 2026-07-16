@@ -3,7 +3,7 @@ use crate::agent::flows::traditional::app_gen::AppGenOutput;
 use crate::agent::flows::traditional::assemble::AssembleOutput;
 use crate::agent::flows::traditional::capability::CapabilityOutput;
 use crate::agent::flows::traditional::component::ComponentOutput;
-use crate::agent::flows::traditional::component_gen::ComponentGenOutput;
+use crate::agent::flows::traditional::component_gen::{ComponentGenOutput, ComponentGenPartial};
 use crate::agent::flows::traditional::dependency::DependencyOutput;
 use crate::agent::flows::traditional::files::schema::FilesOutput;
 use crate::agent::flows::traditional::hooks::HooksOutput;
@@ -19,6 +19,7 @@ use crate::agent::flows::traditional::style_gen::StyleGenOutput;
 use crate::agent::flows::traditional::typegen::TypeOutput;
 use crate::agent::flows::traditional::ui::UiOutput;
 use crate::agent::flows::traditional::utils::UtilsOutput;
+use crate::session::VersionMeta;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentEvent {
@@ -43,6 +44,8 @@ pub enum AgentEvent {
     PostProcess(PostProcessOutput),
     Plan(PlanOutput),
     Files(FilesOutput),
+    ComponentGenPartial(ComponentGenPartial),
+    SessionCommit(VersionMeta),
     Error(String),
     Done,
 }

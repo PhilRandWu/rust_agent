@@ -18,6 +18,14 @@ use tokio::sync::mpsc;
 
 const AGENT_EVENT_CHANNEL_SIZE: usize = 32;
 
+#[tracing::instrument(
+    skip(state, request),
+    fields(
+        project_id = request.project_id.as_deref().unwrap_or("-"),
+        msg_count = request.messages.len(),
+        has_mock_config = request.mock_config.is_some(),
+    )
+)]
 pub async fn chat(
     State(state): State<AppState>,
     Json(request): Json<ChatRequest>,
@@ -33,8 +41,14 @@ pub async fn chat(
             match route.flow {
                 RouteFlow::Traditional => {
                     let ctx = route.context;
+                    let gate = state.llm_gate.clone();
+                    let session_store = state.session_store.clone();
                     tokio::spawn(async move {
-                        let graph = TraditionalGraph::new(main_client);
+                        let graph = TraditionalGraph::with_gate_and_session(
+                            main_client,
+                            gate,
+                            session_store,
+                        );
                         graph.run_streaming(ctx, tx).await;
                     });
                 }
@@ -299,6 +313,100 @@ mod tests {
         assert!(
             body.contains(r#""type":"done""#),
             "stream should end with done, got: {body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn sse_emits_session_frame_and_commits_version_when_project_id_present() {
+        let router = build_test_router();
+        let payload = json!({
+            "messages": [
+                { "role": "user", "content": "build a todo app" }
+            ],
+            "projectId": "proj-session-1",
+            "mockConfig": all_nodes_mock_config()
+        });
+
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/chat")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(payload.to_string()))
+                    .expect("request should build"),
+            )
+            .await
+            .expect("router should respond");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = collect_body_utf8(response).await;
+
+        assert!(
+            body.contains(r#""type":"session""#),
+            "expected a session frame after postProcess, got: {body}"
+        );
+        assert!(
+            body.contains(r#""version":1"#),
+            "expected version=1 for first commit, got: {body}"
+        );
+        assert!(
+            body.contains(r#""operation":"create""#),
+            "first commit should be operation=create"
+        );
+
+        let session_idx = body.find(r#""type":"session""#).unwrap();
+        let done_idx = body.find(r#""type":"done""#).unwrap();
+        let last_files_idx = body.rfind(r#""type":"files""#).unwrap();
+        assert!(
+            last_files_idx < session_idx,
+            "session should come after last files frame"
+        );
+        assert!(session_idx < done_idx, "session should precede done");
+
+        let list_resp = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/session/proj-session-1/versions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+        let list_json: serde_json::Value =
+            serde_json::from_slice(&list_resp.into_body().collect().await.unwrap().to_bytes())
+                .unwrap();
+        assert_eq!(list_json["versions"][0]["version"], 1);
+        assert_eq!(list_json["versions"][0]["operation"], "create");
+    }
+
+    #[tokio::test]
+    async fn sse_does_not_commit_session_when_project_id_absent() {
+        let router = build_test_router();
+        let payload = json!({
+            "messages": [{ "role": "user", "content": "todo" }],
+            "mockConfig": all_nodes_mock_config()
+        });
+
+        let response = router
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/chat")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(payload.to_string()))
+                    .expect("req"),
+            )
+            .await
+            .expect("resp");
+        let body = collect_body_utf8(response).await;
+        assert!(
+            !body.contains(r#""type":"session""#),
+            "no session frame expected when projectId missing: {body}"
         );
     }
 }

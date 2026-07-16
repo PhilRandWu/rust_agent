@@ -81,6 +81,12 @@ pub enum FrontendEventEnum {
     #[serde(rename = "files")]
     Files,
 
+    #[serde(rename = "componentsCodePartial")]
+    ComponentGenPartial,
+
+    #[serde(rename = "session")]
+    Session,
+
     #[serde(rename = "done")]
     Done,
 
@@ -224,6 +230,10 @@ impl FrontendEvent {
             AgentEvent::PostProcess(output) => Self::assemble_files_event(output.files),
             AgentEvent::Plan(output) => Self::plan_output(output),
             AgentEvent::Files(output) => Self::files_output(output),
+            AgentEvent::ComponentGenPartial(partial) => {
+                Self::json_event(FrontendEventEnum::ComponentGenPartial, partial)
+            }
+            AgentEvent::SessionCommit(meta) => Self::json_event(FrontendEventEnum::Session, meta),
             AgentEvent::Error(error) => Self::error(error),
             AgentEvent::Done => Self::done(),
         }
@@ -328,6 +338,7 @@ mod tests {
             (AppGen, "app"),
             (Plan, "plan"),
             (Files, "files"),
+            (Session, "session"),
             (Done, "done"),
             (Error, "error"),
         ];
@@ -431,5 +442,36 @@ mod tests {
             !error.contains(r#""phase""#),
             "error should not have phase, got: {error}"
         );
+    }
+
+    #[test]
+    fn component_gen_partial_maps_to_components_code_partial_view_phase() {
+        use crate::agent::flows::traditional::component_gen::{
+            ComponentCodeFile, ComponentGenPartial, PartialProgress,
+        };
+        let event =
+            FrontendEvent::from_agent_event(AgentEvent::ComponentGenPartial(ComponentGenPartial {
+                file: ComponentCodeFile {
+                    path: "/components/TodoItem.tsx".to_string(),
+                    content: "export default () => null;".to_string(),
+                    description: None,
+                },
+                progress: PartialProgress {
+                    completed: 2,
+                    total: 5,
+                },
+            }));
+        let data = event.to_sse_data().unwrap();
+        assert!(
+            data.contains(r#""type":"componentsCodePartial""#),
+            "type: {data}"
+        );
+        assert!(data.contains(r#""phase":"view""#), "phase: {data}");
+        assert!(
+            data.contains(r#""completed":2"#),
+            "progress.completed: {data}"
+        );
+        assert!(data.contains(r#""total":5"#), "progress.total: {data}");
+        assert!(data.contains(r#""path":"/components/TodoItem.tsx""#));
     }
 }
