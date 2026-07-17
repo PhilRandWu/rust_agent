@@ -110,7 +110,6 @@ fn does_not_break_on_string_with_braces_inside() {
 
 #[test]
 fn does_not_break_on_string_with_comma_before_close() {
-    // 字符串内的 `,]` 不应被误删
     let raw = r#"{"name":"end,]","tags":[]}"#;
     assert_eq!(parse(raw).name, "end,]");
 }
