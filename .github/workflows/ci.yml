@@ -13,6 +13,9 @@ jobs:
   rust:
     name: Rust Checks
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,6 +27,8 @@ jobs:
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
 
       - name: Check formatting
         run: cargo fmt --all -- --check
