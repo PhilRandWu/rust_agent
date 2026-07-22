@@ -1,0 +1,18 @@
+# deps
+node_modules/
+
+# next
+.next/
+out/
+
+# misc
+.DS_Store
+*.log
+
+# env (except examples)
+.env*
+!.env.example
+
+# ts
+*.tsbuildinfo
+next-env.d.ts
