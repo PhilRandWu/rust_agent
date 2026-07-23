@@ -29,8 +29,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   abort: undefined,
 
   setProjectId: (id) => set({ projectId: id }),
-  appendMessage: (msg) =>
-    set((s) => ({ messages: [...s.messages, msg] })),
+  appendMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
   reset: () =>
     set({

@@ -1,13 +1,5 @@
-// 对齐 backend/src/sse/event.rs 与 sse/phase.rs
-// 后端 FrontendEventEnum / TraditionalPhase 使用 serde rename，
-// 与下面的字符串字面量完全一一对应。
-
 export type TraditionalPhase =
-  | "planning"
-  | "foundation"
-  | "logic"
-  | "view"
-  | "assembly";
+  "planning" | "foundation" | "logic" | "view" | "assembly";
 
 export type Phase = TraditionalPhase;
 

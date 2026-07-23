@@ -1,13 +1,6 @@
 import { create } from "zustand";
-import {
-  deleteSession,
-  getVersion,
-  listVersions,
-} from "@/services/session";
-import type {
-  GetVersionResponse,
-  VersionMeta,
-} from "@/types/session";
+import { deleteSession, getVersion, listVersions } from "@/services/session";
+import type { GetVersionResponse, VersionMeta } from "@/types/session";
 
 interface SessionState {
   projectId?: string;

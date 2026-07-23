@@ -1,9 +1,6 @@
 import { API_ENDPOINTS } from "@/constants/api";
 import { getJson, HttpError } from "@/services/http";
-import type {
-  GetVersionResponse,
-  ListVersionsResponse,
-} from "@/types/session";
+import type { GetVersionResponse, ListVersionsResponse } from "@/types/session";
 
 export function listVersions(projectId: string): Promise<ListVersionsResponse> {
   return getJson<ListVersionsResponse>(
