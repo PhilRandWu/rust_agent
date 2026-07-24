@@ -6,9 +6,15 @@ const BACKEND_URL =
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
+      // /health 后端不带 /api 前缀，单独映射
+      {
+        source: "/api/health",
+        destination: `${BACKEND_URL}/health`,
+      },
+      // 其余 /api/* 原样透传（后端路由含 /api 前缀）
       {
         source: "/api/:path*",
-        destination: `${BACKEND_URL}/:path*`,
+        destination: `${BACKEND_URL}/api/:path*`,
       },
     ];
   },

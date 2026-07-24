@@ -8,13 +8,13 @@ type Status = "idle" | "streaming" | "done" | "error";
 interface ChatState {
   projectId?: string;
   messages: ChatMessage[];
-  events: StreamEvent[];
+  eventsByMessage: Record<string, StreamEvent[]>;
+  streamingMessageId?: string;
   status: Status;
   errorMessage?: string;
   abort?: () => void;
 
   setProjectId: (id?: string) => void;
-  appendMessage: (msg: ChatMessage) => void;
   send: (userText: string) => Promise<void>;
   cancel: () => void;
   reset: () => void;
@@ -23,18 +23,19 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set, get) => ({
   projectId: undefined,
   messages: [],
-  events: [],
+  eventsByMessage: {},
+  streamingMessageId: undefined,
   status: "idle",
   errorMessage: undefined,
   abort: undefined,
 
   setProjectId: (id) => set({ projectId: id }),
-  appendMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
 
   reset: () =>
     set({
       messages: [],
-      events: [],
+      eventsByMessage: {},
+      streamingMessageId: undefined,
       status: "idle",
       errorMessage: undefined,
       abort: undefined,
@@ -49,11 +50,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (get().status === "streaming") return;
 
     const controller = new AbortController();
-    const userMsg: ChatMessage = { role: "user", content: userText };
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: userText,
+    };
+    const assistantMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: "",
+    };
 
     set((s) => ({
-      messages: [...s.messages, userMsg],
-      events: [],
+      messages: [...s.messages, userMsg, assistantMsg],
+      eventsByMessage: { ...s.eventsByMessage, [assistantMsg.id!]: [] },
+      streamingMessageId: assistantMsg.id,
       status: "streaming",
       errorMessage: undefined,
       abort: () => controller.abort(),
@@ -67,22 +78,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
         signal: controller.signal,
         onEvent: (event) => {
-          set((s) => ({ events: [...s.events, event] }));
+          const sid = get().streamingMessageId;
+          if (sid) {
+            set((s) => ({
+              eventsByMessage: {
+                ...s.eventsByMessage,
+                [sid]: [...(s.eventsByMessage[sid] ?? []), event],
+              },
+            }));
+          }
           if (event.type === "error") {
             set({ status: "error", errorMessage: event.message });
           } else if (event.type === "done") {
-            set({ status: "done" });
+            set({ status: "done", streamingMessageId: undefined });
           }
         },
       });
-      if (get().status === "streaming") set({ status: "done" });
+      if (get().status === "streaming") {
+        set({ status: "done", streamingMessageId: undefined });
+      }
     } catch (err) {
       if (controller.signal.aborted) {
-        set({ status: "idle" });
+        set({ status: "idle", streamingMessageId: undefined });
         return;
       }
       set({
         status: "error",
+        streamingMessageId: undefined,
         errorMessage: err instanceof Error ? err.message : String(err),
       });
     } finally {
